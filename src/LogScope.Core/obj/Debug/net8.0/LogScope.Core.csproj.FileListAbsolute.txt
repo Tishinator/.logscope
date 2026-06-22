@@ -1,0 +1,12 @@
+C:\Users\miket\Projects\logscope\src\LogScope.Core\bin\Debug\net8.0\LogScope.Core.deps.json
+C:\Users\miket\Projects\logscope\src\LogScope.Core\bin\Debug\net8.0\LogScope.Core.dll
+C:\Users\miket\Projects\logscope\src\LogScope.Core\bin\Debug\net8.0\LogScope.Core.pdb
+C:\Users\miket\Projects\logscope\src\LogScope.Core\obj\Debug\net8.0\LogScope.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\miket\Projects\logscope\src\LogScope.Core\obj\Debug\net8.0\LogScope.Core.AssemblyInfoInputs.cache
+C:\Users\miket\Projects\logscope\src\LogScope.Core\obj\Debug\net8.0\LogScope.Core.AssemblyInfo.cs
+C:\Users\miket\Projects\logscope\src\LogScope.Core\obj\Debug\net8.0\LogScope.Core.csproj.CoreCompileInputs.cache
+C:\Users\miket\Projects\logscope\src\LogScope.Core\obj\Debug\net8.0\LogScope.Core.sourcelink.json
+C:\Users\miket\Projects\logscope\src\LogScope.Core\obj\Debug\net8.0\LogScope.Core.dll
+C:\Users\miket\Projects\logscope\src\LogScope.Core\obj\Debug\net8.0\refint\LogScope.Core.dll
+C:\Users\miket\Projects\logscope\src\LogScope.Core\obj\Debug\net8.0\LogScope.Core.pdb
+C:\Users\miket\Projects\logscope\src\LogScope.Core\obj\Debug\net8.0\ref\LogScope.Core.dll
