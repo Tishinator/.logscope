@@ -66,6 +66,7 @@
                         <MenuItem Header="Import profile…" Command="{Binding ImportProfileCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
                     <MenuItem Header="_Settings" Foreground="#E6ECF2">
+                        <MenuItem Header="Color rules…" Command="{Binding EditColorRulesCommand}" Style="{StaticResource DropItem}"/>
                         <MenuItem Header="File extensions…" Command="{Binding EditExtensionsCommand}" Style="{StaticResource DropItem}"/>
                         <MenuItem Header="Reset settings…" Command="{Binding ResetSettingsCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>

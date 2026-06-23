@@ -14,8 +14,8 @@ namespace LogScope.App.ViewModels;
 
 public sealed class LogTabViewModel : ViewModelBase, IDisposable
 {
-    private readonly ColorRuleEngine _colorEngine = new(DefaultRules.ColorRules);
-    private readonly FlagRuleEngine _flagEngine = new(DefaultRules.FlagRules);
+    private ColorRuleEngine _colorEngine;
+    private FlagRuleEngine _flagEngine;
     private readonly SearchEngine _searchEngine = new();
 
     private LogDocument _document;
@@ -42,12 +42,14 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     /// <summary>The rows currently selected in the grid (set by the view for copy operations).</summary>
     public IReadOnlyList<LogRowViewModel> SelectedRows { get; set; } = [];
 
-    public LogTabViewModel(LogDocument document)
+    public LogTabViewModel(LogDocument document, IEnumerable<ColorRule> colorRules, IEnumerable<FlagRule> flagRules)
     {
         _document = document;
         FilePath = document.FilePath;
         Title = Path.GetFileName(document.FilePath);
         Columns = document.Columns;
+        _colorEngine = new ColorRuleEngine(colorRules);
+        _flagEngine = new FlagRuleEngine(flagRules);
 
         FindNextCommand = new RelayCommand(FindNext);
         FindPrevCommand = new RelayCommand(FindPrev);
@@ -56,6 +58,14 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         CopyLineRefsCommand = new RelayCommand(() => Copy(CopyMode.LineRefs));
         RestoreOrderCommand = new RelayCommand(() => RestoreOrderRequested?.Invoke());
 
+        RefreshView();
+    }
+
+    /// <summary>Re-applies edited color/flag rules to the current view (UR-10).</summary>
+    public void UpdateRules(IEnumerable<ColorRule> colorRules, IEnumerable<FlagRule> flagRules)
+    {
+        _colorEngine = new ColorRuleEngine(colorRules);
+        _flagEngine = new FlagRuleEngine(flagRules);
         RefreshView();
     }
 

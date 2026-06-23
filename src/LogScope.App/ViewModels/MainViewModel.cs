@@ -7,6 +7,7 @@ using LogScope.App.Views;
 using LogScope.Core.Documents;
 using LogScope.Core.Parsing;
 using LogScope.Core.Persistence;
+using LogScope.Core.Visualization;
 using LogScope.Core.Workspace;
 
 namespace LogScope.App.ViewModels;
@@ -39,6 +40,7 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand SaveFilterPresetCommand { get; }
     public RelayCommand ApplyFilterPresetCommand { get; }
     public RelayCommand ReloadEncodingCommand { get; }
+    public RelayCommand EditColorRulesCommand { get; }
 
     public MainViewModel()
     {
@@ -65,6 +67,26 @@ public sealed class MainViewModel : ViewModelBase
         SaveFilterPresetCommand = new RelayCommand(SaveFilterPreset);
         ApplyFilterPresetCommand = new RelayCommand(p => { if (p is FilterPreset fp) ApplyFilterPreset(fp); });
         ReloadEncodingCommand = new RelayCommand(p => ReloadWithEncoding(p as string));
+        EditColorRulesCommand = new RelayCommand(EditColorRules);
+    }
+
+    // ----- Color / flag rules (UR-10) -----
+
+    public IReadOnlyList<ColorRule> ColorRules() => Settings.ColorRules.Select(d => d.ToRule()).ToList();
+    public IReadOnlyList<FlagRule> FlagRules() => Settings.FlagRules.Select(d => d.ToRule()).ToList();
+
+    private void EditColorRules()
+    {
+        var editor = new ColorRulesWindow(Settings.ColorRules) { Owner = Application.Current?.MainWindow };
+        if (editor.ShowDialog() != true) return;
+
+        Settings.ColorRules = editor.Rules.ToList();
+        SaveSettings();
+
+        var colors = ColorRules();
+        var flags = FlagRules();
+        foreach (var tab in OpenTabs)
+            tab.UpdateRules(colors, flags);
     }
 
     // ----- Filter presets (UR-08) -----
@@ -190,7 +212,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             var profile = ResolveProfile(filePath);
             var doc = LogDocument.Load(filePath, profile, encoding: null, LogDocument.DefaultMaxLines);
-            var tab = new LogTabViewModel(doc);
+            var tab = new LogTabViewModel(doc, ColorRules(), FlagRules());
             OpenTabs.Add(tab);
             SelectedTab = tab;
         }

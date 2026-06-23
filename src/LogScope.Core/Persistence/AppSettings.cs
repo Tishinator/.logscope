@@ -31,6 +31,10 @@ public sealed class AppSettings
 
     public List<FilterPreset> FilterPresets { get; set; } = [];
 
+    // Configurable visual rules (UR-10) and flag rules (UR-11), seeded with sensible defaults.
+    public List<ColorRuleDto> ColorRules { get; set; } = DefaultRuleSets.ColorRules();
+    public List<FlagRuleDto> FlagRules { get; set; } = DefaultRuleSets.FlagRules();
+
     // Workspace-to-profile assignment and per-file override (UR-06)
     public Dictionary<string, string> DirectoryProfileAssignments { get; set; } = new();
     public Dictionary<string, string> FileProfileOverrides { get; set; } = new();
