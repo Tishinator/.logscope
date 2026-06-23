@@ -29,7 +29,7 @@ Grab the latest `LogScope.exe` from the [Releases page](https://github.com/Tishi
 - **Filter presets** — save the current filter as a named preset and reapply it later.
 - **Field types / templates** — assign a semantic type to each field (Timestamp, Level, Module, Message, Thread, Device ID, Test Case, Run ID, Result). The Level field sorts by a configurable severity order (with custom levels), not alphabetically.
 - **Custom color rules** — author your own row/field visual rules (field value, message-contains, or regex → color, with priority) in Settings ▸ Color rules; they persist.
-- **Side-by-side synchronized comparison** — open multiple logs and compare them side by side (View ▸ Compare). Selecting a row in one aligns the others by physical line number or by nearest timestamp; sync is toggleable per log, and timestamp mode falls back to line sync (with a notice) when a log has no timestamp.
+- **Side-by-side split view** — right-click a tab ▸ **Split with active tab** to view logs side by side (repeat on another tab to add it; or View ▸ Split all). Optional synchronization (off by default) aligns the panes by physical line number or nearest timestamp when you select a row; sync is toggleable per pane and falls back to line sync (with a notice) when a log has no timestamp field.
 - **Collapsible workspace panel** — collapse the file tree accordion-style to give logs more room.
 - **Persistence** — window size, included extensions, profile assignments, presets, and color rules are saved between sessions, under your app-data folder (never in the log directory). Reset from the Settings menu.
 

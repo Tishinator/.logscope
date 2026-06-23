@@ -66,10 +66,10 @@
                         <MenuItem Header="Import profile…" Command="{Binding ImportProfileCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
                     <MenuItem Header="_View" Foreground="#E6ECF2">
-                        <MenuItem Header="Split view (side-by-side)" IsCheckable="True"
-                                  IsChecked="{Binding CompareMode}" IsEnabled="{Binding CanCompare}"
+                        <MenuItem Header="Split all open logs side-by-side"
+                                  Command="{Binding ToggleCompareCommand}" IsEnabled="{Binding CanCompare}"
                                   Style="{StaticResource DropItem}"
-                                  ToolTip="Open at least two logs to compare them side by side"/>
+                                  ToolTip="Or right-click a tab → Split with active tab"/>
                     </MenuItem>
                     <MenuItem Header="_Settings" Foreground="#E6ECF2">
                         <MenuItem Header="Color rules…" Command="{Binding EditColorRulesCommand}" Style="{StaticResource DropItem}"/>
@@ -145,87 +145,128 @@
 
             <GridSplitter x:Name="WorkspaceSplitter" Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#1A1A1A"/>
 
-            <!-- Right: single-tab view OR side-by-side compare -->
-            <Grid Grid.Column="2">
+            <!-- Right: persistent tab strip + content (single tab OR split group) -->
+            <DockPanel Grid.Column="2">
 
-            <!-- ===== Compare mode (UR-13) ===== -->
-            <DockPanel Visibility="{Binding CompareMode, Converter={StaticResource BoolToVis}}">
-                <Border DockPanel.Dock="Top" Background="#2D2D30" Padding="8,5">
+                <!-- ===== Tab strip (always visible; right-click to split) ===== -->
+                <ListBox DockPanel.Dock="Top" x:Name="TabStrip" ItemsSource="{Binding OpenTabs}"
+                         SelectedItem="{Binding SelectedTab}" Background="#2A2A2A" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Tab" Background="#2A2A2A" BorderBrush="#1A1A1A" BorderThickness="0,0,1,0" Padding="10,5">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Tab" Property="Background" Value="#1E1E1E"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="ContextMenu">
+                                <Setter.Value>
+                                    <ContextMenu>
+                                        <MenuItem Header="Split with active tab"
+                                                  Command="{Binding PlacementTarget.Tag.SplitWithActiveCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  CommandParameter="{Binding}"/>
+                                        <MenuItem Header="Remove from split"
+                                                  Command="{Binding PlacementTarget.Tag.RemoveFromSplitCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  CommandParameter="{Binding}"/>
+                                    </ContextMenu>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Title}" Foreground="#DDD" VerticalAlignment="Center"/>
+                                <Border Background="#C0392B" CornerRadius="7" Padding="5,0" Margin="6,0,0,0"
+                                        VerticalAlignment="Center" MinWidth="16" ToolTip="Flagged events">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding FlaggedCount}" Value="0">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding FlaggedCount}" Foreground="White" FontSize="10" HorizontalAlignment="Center"/>
+                                </Border>
+                                <Button Content="✕" Click="OnCloseTab" Tag="{Binding}" Margin="8,0,0,0"
+                                        Padding="3,0" BorderThickness="0" Background="Transparent" Foreground="#999"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- ===== Split-view sync bar (only in split) ===== -->
+                <Border DockPanel.Dock="Top" Background="#2D2D30" Padding="8,5"
+                        Visibility="{Binding CompareMode, Converter={StaticResource BoolToVis}}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Split view" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <TextBlock Text="Sync:" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,4,0"/>
                         <ComboBox Width="120" VerticalAlignment="Center" ItemsSource="{Binding SyncModes}"
                                   SelectedItem="{Binding SyncMode}" Margin="0,0,12,0"/>
-                        <TextBlock Text="Sync is off by default. Pick Line/Timestamp, then select a row to align the panes flagged 'Sync'."
+                        <TextBlock Text="Right-click another tab to add it. Pick Line/Timestamp, then select a row to align panes flagged 'Sync'."
                                    Foreground="#888" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                        <Button Content="Exit compare" Command="{Binding ExitCompareCommand}" Padding="8,2"/>
+                        <Button Content="Exit split" Command="{Binding ExitCompareCommand}" Padding="8,2"/>
                     </StackPanel>
                 </Border>
-                <ItemsControl ItemsSource="{Binding OpenTabs}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Rows="1"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border BorderBrush="#0E0E0E" BorderThickness="1">
-                                <DockPanel>
-                                    <Border DockPanel.Dock="Top" Background="#1B2B3F" Padding="6,3">
-                                        <DockPanel>
-                                            <CheckBox DockPanel.Dock="Right" Content="Sync" Foreground="#9CD"
-                                                      VerticalAlignment="Center" IsChecked="{Binding IsSyncEnabled}"
-                                                      ToolTip="Include this log when synchronizing the split view"/>
-                                            <TextBlock Text="{Binding Title}" Foreground="#ECECEC" FontWeight="SemiBold"
-                                                       VerticalAlignment="Center"/>
-                                        </DockPanel>
-                                    </Border>
-                                    <views:LogTabView/>
-                                </DockPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+
+                <!-- ===== Content: split group OR single selected tab ===== -->
+                <Grid>
+                    <ItemsControl Visibility="{Binding CompareMode, Converter={StaticResource BoolToVis}}"
+                                  ItemsSource="{Binding SplitGroup}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="#0E0E0E" BorderThickness="1">
+                                    <DockPanel>
+                                        <Border DockPanel.Dock="Top" Background="#1B2B3F" Padding="6,3">
+                                            <DockPanel>
+                                                <CheckBox DockPanel.Dock="Right" Content="Sync" Foreground="#9CD"
+                                                          VerticalAlignment="Center" IsChecked="{Binding IsSyncEnabled}"
+                                                          ToolTip="Include this log when synchronizing the split view"/>
+                                                <TextBlock Text="{Binding Title}" Foreground="#ECECEC" FontWeight="SemiBold"
+                                                           VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                        </Border>
+                                        <views:LogTabView/>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <ContentControl Visibility="{Binding SingleMode, Converter={StaticResource BoolToVis}}"
+                                    Content="{Binding SelectedTab}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate>
+                                <views:LogTabView/>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </Grid>
+
             </DockPanel>
-
-            <!-- ===== Single-tab mode ===== -->
-            <TabControl Visibility="{Binding SingleMode, Converter={StaticResource BoolToVis}}"
-                        Background="#1E1E1E" BorderThickness="0"
-                        ItemsSource="{Binding OpenTabs}" SelectedItem="{Binding SelectedTab}">
-                <TabControl.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Title}" VerticalAlignment="Center"/>
-                            <!-- Flagged-event indicator on the tab (UR-11) -->
-                            <Border Background="#C0392B" CornerRadius="7" Padding="5,0" Margin="6,0,0,0"
-                                    VerticalAlignment="Center" MinWidth="16" HorizontalAlignment="Center"
-                                    ToolTip="Flagged events in this log">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding FlaggedCount}" Value="0">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <TextBlock Text="{Binding FlaggedCount}" Foreground="White" FontSize="10"
-                                           HorizontalAlignment="Center"/>
-                            </Border>
-                            <Button Content="✕" Click="OnCloseTab" Tag="{Binding}" Margin="8,0,0,0"
-                                    Padding="3,0" BorderThickness="0" Background="Transparent" Foreground="#999"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </TabControl.ItemTemplate>
-                <TabControl.ContentTemplate>
-                    <DataTemplate>
-                        <views:LogTabView/>
-                    </DataTemplate>
-                </TabControl.ContentTemplate>
-            </TabControl>
-
-            </Grid>
         </Grid>
         </Grid>
     </DockPanel>

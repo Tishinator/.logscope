@@ -24,6 +24,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public ObservableCollection<WorkspaceNodeViewModel> WorkspaceRoots { get; } = [];
     public ObservableCollection<LogTabViewModel> OpenTabs { get; } = [];
+    public ObservableCollection<LogTabViewModel> SplitGroup { get; } = [];
     public ObservableCollection<LogProfile> SavedProfiles { get; } = [];
 
     public RelayCommand OpenFileCommand { get; }
@@ -45,6 +46,8 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand EditFlagRulesCommand { get; }
     public RelayCommand ToggleCompareCommand { get; }
     public RelayCommand ExitCompareCommand { get; }
+    public RelayCommand SplitWithActiveCommand { get; }
+    public RelayCommand RemoveFromSplitCommand { get; }
 
     public MainViewModel()
     {
@@ -73,14 +76,58 @@ public sealed class MainViewModel : ViewModelBase
         ReloadEncodingCommand = new RelayCommand(p => ReloadWithEncoding(p as string));
         EditColorRulesCommand = new RelayCommand(EditColorRules);
         EditFlagRulesCommand = new RelayCommand(EditFlagRules);
-        ToggleCompareCommand = new RelayCommand(() => CompareMode = !CompareMode);
-        ExitCompareCommand = new RelayCommand(() => CompareMode = false);
+        ToggleCompareCommand = new RelayCommand(ToggleCompareAll);
+        ExitCompareCommand = new RelayCommand(ExitSplit);
+        SplitWithActiveCommand = new RelayCommand(p => SplitWithActive(p as LogTabViewModel));
+        RemoveFromSplitCommand = new RelayCommand(p => RemoveFromSplit(p as LogTabViewModel));
 
-        OpenTabs.CollectionChanged += (_, _) =>
+        OpenTabs.CollectionChanged += (_, _) => OnPropertyChanged(nameof(CanCompare));
+    }
+
+    /// <summary>Right-click a tab → split it with the active tab; repeating adds to the existing group.</summary>
+    private void SplitWithActive(LogTabViewModel? tab)
+    {
+        if (tab == null) return;
+
+        if (!CompareMode)
+            SplitGroup.Clear();
+
+        void AddUnique(LogTabViewModel? t)
         {
-            OnPropertyChanged(nameof(CanCompare));
-            if (!CanCompare) CompareMode = false;
-        };
+            if (t != null && !SplitGroup.Contains(t)) SplitGroup.Add(t);
+        }
+
+        // Right-clicking a tab selects it, so the "active" tab to split with is the previously
+        // selected one when the clicked tab is now the active selection.
+        var active = (tab == SelectedTab) ? _previousSelectedTab : SelectedTab;
+        AddUnique(active);
+        AddUnique(tab);
+
+        if (SplitGroup.Count >= 2)
+            CompareMode = true;
+    }
+
+    private void RemoveFromSplit(LogTabViewModel? tab)
+    {
+        if (tab == null) return;
+        SplitGroup.Remove(tab);
+        if (SplitGroup.Count < 2) ExitSplit();
+    }
+
+    /// <summary>View ▸ Split view: split all open logs at once (convenience).</summary>
+    private void ToggleCompareAll()
+    {
+        if (CompareMode) { ExitSplit(); return; }
+        if (!CanCompare) return;
+        SplitGroup.Clear();
+        foreach (var t in OpenTabs) SplitGroup.Add(t);
+        CompareMode = true;
+    }
+
+    private void ExitSplit()
+    {
+        CompareMode = false;
+        SplitGroup.Clear();
     }
 
     // ----- Synchronized side-by-side comparison (UR-13 / SR-09) -----
@@ -126,7 +173,7 @@ public sealed class MainViewModel : ViewModelBase
     private void SyncByLine(LogTabViewModel source)
     {
         int refLine = source.SelectedRow!.LineNumber;
-        foreach (var tab in OpenTabs)
+        foreach (var tab in SplitGroup)
         {
             if (tab == source || !tab.IsSyncEnabled) continue;
             tab.SelectLine(SyncAligner.AlignByLine(refLine, tab.LastLineNumber));
@@ -146,7 +193,7 @@ public sealed class MainViewModel : ViewModelBase
             return;
         }
 
-        foreach (var tab in OpenTabs)
+        foreach (var tab in SplitGroup)
         {
             if (tab == source || !tab.IsSyncEnabled) continue;
 
@@ -264,7 +311,17 @@ public sealed class MainViewModel : ViewModelBase
     public bool HasWorkspace => WorkspaceRoots.Count > 0;
 
     private LogTabViewModel? _selectedTab;
-    public LogTabViewModel? SelectedTab { get => _selectedTab; set => SetField(ref _selectedTab, value); }
+    private LogTabViewModel? _previousSelectedTab;
+    public LogTabViewModel? SelectedTab
+    {
+        get => _selectedTab;
+        set
+        {
+            if (_selectedTab == value) return;
+            _previousSelectedTab = _selectedTab;
+            SetField(ref _selectedTab, value);
+        }
+    }
 
     public string ExtensionsDisplay => string.Join(", ", Settings.IncludedExtensions);
 
@@ -373,7 +430,9 @@ public sealed class MainViewModel : ViewModelBase
     {
         tab.PropertyChanged -= OnTabPropertyChanged;
         tab.Dispose();
+        SplitGroup.Remove(tab);
         OpenTabs.Remove(tab);
+        if (CompareMode && SplitGroup.Count < 2) ExitSplit();
     }
 
     private void OnTabPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
