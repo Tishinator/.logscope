@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Text;
 using System.Windows;
 using LogScope.Core.Documents;
@@ -6,9 +8,26 @@ using LogScope.Core.Reading;
 
 namespace LogScope.App.Views;
 
+/// <summary>Editable field → semantic-type row for the wizard (UR-06).</summary>
+public sealed class FieldTypeRow : INotifyPropertyChanged
+{
+    public string Name { get; init; } = string.Empty;
+    private FieldSemanticType _type;
+    public FieldSemanticType Type
+    {
+        get => _type;
+        set { _type = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Type))); }
+    }
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
 public partial class ParserWizardWindow : Window
 {
     private readonly IReadOnlyList<RawLogLine> _sample;
+    private readonly ObservableCollection<FieldTypeRow> _fieldTypes = [];
+
+    public static IReadOnlyList<FieldSemanticType> FieldTypeValues { get; } =
+        Enum.GetValues<FieldSemanticType>();
 
     public LogProfile? ResultProfile { get; private set; }
     public bool SaveToLibrary => SaveToLibraryBox.IsChecked == true;
@@ -17,7 +36,36 @@ public partial class ParserWizardWindow : Window
     {
         InitializeComponent();
         _sample = sampleLines.Select((t, i) => new RawLogLine(i + 1, t)).ToList();
+        FieldTypesGrid.ItemsSource = _fieldTypes;
         Loaded += (_, _) => OnPreview(this, new RoutedEventArgs());
+    }
+
+    /// <summary>Default a sensible type from a field's name (Timestamp/Level/Message/etc.).</summary>
+    private static FieldSemanticType GuessType(string name)
+    {
+        var n = name.Trim().ToLowerInvariant();
+        if (n.Contains("time") || n.Contains("date") || n == "ts") return FieldSemanticType.Timestamp;
+        if (n.Contains("level") || n == "lvl" || n == "severity") return FieldSemanticType.Level;
+        if (n.Contains("message") || n == "msg" || n == "text") return FieldSemanticType.Message;
+        if (n.Contains("module") || n.Contains("logger") || n.Contains("tag")) return FieldSemanticType.Module;
+        if (n.Contains("thread")) return FieldSemanticType.Thread;
+        if (n.Contains("device")) return FieldSemanticType.DeviceId;
+        if (n.Contains("test")) return FieldSemanticType.TestCase;
+        if (n.Contains("run")) return FieldSemanticType.RunId;
+        if (n.Contains("result")) return FieldSemanticType.Result;
+        return FieldSemanticType.Generic;
+    }
+
+    private void SyncFieldTypeRows(IEnumerable<string> fieldNames)
+    {
+        var existing = _fieldTypes.ToDictionary(r => r.Name, r => r.Type);
+        _fieldTypes.Clear();
+        foreach (var name in fieldNames)
+        {
+            if (name == "RawText") continue;
+            var type = existing.TryGetValue(name, out var t) ? t : GuessType(name);
+            _fieldTypes.Add(new FieldTypeRow { Name = name, Type = type });
+        }
     }
 
     private void OnModeChanged(object sender, RoutedEventArgs e)
@@ -64,6 +112,19 @@ public partial class ParserWizardWindow : Window
         profile.Name = string.IsNullOrWhiteSpace(NameBox.Text) ? "My profile" : NameBox.Text.Trim();
         if (!string.IsNullOrWhiteSpace(MultilineBox.Text))
             profile.WithMultiline(MultilineBox.Text.Trim());
+
+        // Apply field semantic types (UR-06)
+        foreach (var row in _fieldTypes)
+            if (row.Type != FieldSemanticType.Generic)
+                profile.SetFieldType(row.Name, row.Type);
+
+        // Apply custom level order
+        var levels = LevelOrderBox.Text
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        if (levels.Count > 0)
+            profile.LevelOrder = levels;
+
         return profile;
     }
 
@@ -88,6 +149,10 @@ public partial class ParserWizardWindow : Window
             }
             PreviewBox.Text = sb.ToString();
             StatsText.Text = $"Parsed {parsed}, fallback {fallback} of {_sample.Count} sample lines.";
+
+            // Refresh the field-type rows from the columns this profile produces.
+            var columns = rows.SelectMany(r => r.Fields.Keys).Distinct().ToList();
+            SyncFieldTypeRows(columns);
         }
         catch (Exception ex)
         {

@@ -1,11 +1,25 @@
+using System.Collections;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using LogScope.App.ViewModels;
+using LogScope.Core.Documents;
 
 namespace LogScope.App.Views;
+
+/// <summary>Sorts the Level column by configured severity order rather than alphabetically (UR-06/UR-09).</summary>
+internal sealed class LevelSeverityComparer(LogProfile profile, string levelField, ListSortDirection direction) : IComparer
+{
+    public int Compare(object? x, object? y)
+    {
+        var a = (x as LogRowViewModel)?.GetField(levelField) ?? string.Empty;
+        var b = (y as LogRowViewModel)?.GetField(levelField) ?? string.Empty;
+        int result = profile.LevelRank(a).CompareTo(profile.LevelRank(b));
+        return direction == ListSortDirection.Ascending ? result : -result;
+    }
+}
 
 public partial class LogTabView : UserControl
 {
@@ -72,6 +86,25 @@ public partial class LogTabView : UserControl
     {
         if (_vm != null)
             _vm.SelectedRows = Grid.SelectedItems.Cast<LogRowViewModel>().ToList();
+    }
+
+    /// <summary>Use severity order for the Level field; let the grid sort everything else normally.</summary>
+    private void OnSorting(object sender, DataGridSortingEventArgs e)
+    {
+        var levelField = _vm?.CurrentProfile.LevelField;
+        if (levelField == null || !string.Equals(e.Column.Header?.ToString(), levelField, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        e.Handled = true;
+        var direction = e.Column.SortDirection != ListSortDirection.Ascending
+            ? ListSortDirection.Ascending : ListSortDirection.Descending;
+        e.Column.SortDirection = direction;
+
+        if (CollectionViewSource.GetDefaultView(Grid.ItemsSource) is ListCollectionView view)
+        {
+            view.CustomSort = new LevelSeverityComparer(_vm!.CurrentProfile, levelField, direction);
+            view.Refresh();
+        }
     }
 
     private void OnCopyMenu(object sender, RoutedEventArgs e)

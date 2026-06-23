@@ -1,7 +1,8 @@
 <Window x:Class="LogScope.App.Views.ParserWizardWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Parser setup" Height="620" Width="760"
+        xmlns:views="clr-namespace:LogScope.App.Views"
+        Title="Parser setup" Height="680" Width="780"
         WindowStartupLocation="CenterOwner"
         Background="#252526" ShowInTaskbar="False">
     <DockPanel Margin="14">
@@ -59,17 +60,43 @@
                            Foreground="#AAA" TextWrapping="Wrap" Margin="0,14,0,2"/>
                 <TextBox x:Name="MultilineBox" Padding="3"/>
 
+                <TextBlock Text="Log level order (least → most severe, comma-separated)"
+                           Foreground="#AAA" TextWrapping="Wrap" Margin="0,14,0,2"/>
+                <TextBox x:Name="LevelOrderBox" Padding="3" Text="TRACE, DEBUG, INFO, WARN, ERROR, FATAL"/>
+
                 <Button Content="Preview" Click="OnPreview" Width="100" HorizontalAlignment="Left" Margin="0,14,0,0"/>
                 <TextBlock x:Name="StatsText" Foreground="#7CD" Margin="0,8,0,0"/>
             </StackPanel>
 
-            <!-- Right: preview -->
-            <DockPanel Grid.Column="2">
-                <TextBlock DockPanel.Dock="Top" Text="Preview (first sample lines)" Foreground="#AAA" Margin="0,0,0,4"/>
-                <TextBox x:Name="PreviewBox" IsReadOnly="True" FontFamily="Consolas" FontSize="11"
-                         Background="#1E1E1E" Foreground="#DDD" VerticalScrollBarVisibility="Auto"
-                         HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"/>
-            </DockPanel>
+            <!-- Right: preview + field types -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0">
+                    <TextBlock DockPanel.Dock="Top" Text="Preview (first sample lines)" Foreground="#AAA" Margin="0,0,0,4"/>
+                    <TextBox x:Name="PreviewBox" IsReadOnly="True" FontFamily="Consolas" FontSize="11"
+                             Background="#1E1E1E" Foreground="#DDD" VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"/>
+                </DockPanel>
+
+                <DockPanel Grid.Row="1" Margin="0,10,0,0">
+                    <TextBlock DockPanel.Dock="Top" Text="Field types (assign behavior to each field)"
+                               Foreground="#AAA" Margin="0,0,0,4"/>
+                    <DataGrid x:Name="FieldTypesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
+                              Height="150" Background="#1E1E1E" Foreground="#DDD" RowBackground="#1E1E1E"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Field" Width="*" IsReadOnly="True" Binding="{Binding Name}"/>
+                            <DataGridComboBoxColumn Header="Type" Width="160"
+                                                    SelectedItemBinding="{Binding Type, UpdateSourceTrigger=PropertyChanged}"
+                                                    ItemsSource="{Binding Source={x:Static views:ParserWizardWindow.FieldTypeValues}}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Grid>
         </Grid>
     </DockPanel>
 </Window>

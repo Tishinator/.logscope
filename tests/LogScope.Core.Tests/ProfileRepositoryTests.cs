@@ -93,5 +93,24 @@ public class ProfileRepositoryTests : IDisposable
         repo.LoadAll().Should().ContainSingle().Which.Name.Should().Be("weird/name:with*chars?");
     }
 
+    [Fact]
+    public void SaveAndLoadAll_RoundTripsFieldTypesAndLevelOrder()
+    {
+        var repo = new ProfileRepository(_dir);
+        var profile = LogProfile.Delimited("|", ["Ts", "Lvl", "Msg"]);
+        profile.Name = "Typed";
+        profile.SetFieldType("Ts", FieldSemanticType.Timestamp);
+        profile.SetFieldType("Lvl", FieldSemanticType.Level);
+        profile.SetFieldType("Msg", FieldSemanticType.Message);
+        profile.LevelOrder = ["LOW", "MEDIUM", "HIGH"];
+
+        repo.Save(profile);
+        var loaded = repo.LoadAll().Single();
+
+        loaded.TypeOf("Ts").Should().Be(FieldSemanticType.Timestamp);
+        loaded.LevelField.Should().Be("Lvl");
+        loaded.LevelOrder.Should().ContainInOrder("LOW", "MEDIUM", "HIGH");
+    }
+
     private static LogProfile Named(LogProfile p, string name) { p.Name = name; return p; }
 }

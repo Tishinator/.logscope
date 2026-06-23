@@ -94,6 +94,7 @@
                       ItemsSource="{Binding Rows}"
                       SelectionMode="Extended"
                       SelectionChanged="OnSelectionChanged"
+                      Sorting="OnSorting"
                       SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                       EnableRowVirtualization="True" EnableColumnVirtualization="True"
                       VirtualizingPanel.IsVirtualizing="True"

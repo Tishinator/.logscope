@@ -11,6 +11,8 @@ public sealed class LogProfileDto
     public string? Pattern { get; set; }
     public List<string> FieldNames { get; set; } = [];
     public string? MultilineNewEventPattern { get; set; }
+    public Dictionary<string, FieldSemanticType> FieldTypes { get; set; } = new();
+    public List<string>? LevelOrder { get; set; }
 
     public static LogProfileDto From(LogProfile profile) => new()
     {
@@ -20,6 +22,8 @@ public sealed class LogProfileDto
         Pattern = profile.Pattern,
         FieldNames = profile.FieldNames.ToList(),
         MultilineNewEventPattern = profile.MultilineNewEventPattern,
+        FieldTypes = new Dictionary<string, FieldSemanticType>(profile.FieldTypes),
+        LevelOrder = profile.LevelOrder.ToList(),
     };
 
     public LogProfile ToProfile()
@@ -33,6 +37,10 @@ public sealed class LogProfileDto
         profile.Name = Name;
         if (!string.IsNullOrEmpty(MultilineNewEventPattern))
             profile.WithMultiline(MultilineNewEventPattern);
+        if (FieldTypes.Count > 0)
+            profile.FieldTypes = new Dictionary<string, FieldSemanticType>(FieldTypes, StringComparer.OrdinalIgnoreCase);
+        if (LevelOrder is { Count: > 0 })
+            profile.LevelOrder = LevelOrder.ToList();
         return profile;
     }
 }
