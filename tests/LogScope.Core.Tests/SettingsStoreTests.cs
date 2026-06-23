@@ -77,6 +77,26 @@ public class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void SaveThenLoad_PreservesFlagRuleKind_AndField()
+    {
+        var store = new SettingsStore(_file);
+        var settings = store.Load();
+        settings.FlagRules =
+        [
+            new() { Kind = Core.Visualization.FlagRule.MatchKind.Regex, FieldName = "Level", MatchValue = "ERROR" },
+            new() { Kind = Core.Visualization.FlagRule.MatchKind.Contains, FieldName = null, MatchValue = "boom" },
+        ];
+
+        store.Save(settings);
+        var reloaded = new SettingsStore(_file).Load();
+
+        // Regex must survive as Regex (guards against enum-ordinal serialization breakage).
+        reloaded.FlagRules[0].Kind.Should().Be(Core.Visualization.FlagRule.MatchKind.Regex);
+        reloaded.FlagRules[0].FieldName.Should().Be("Level");
+        reloaded.FlagRules[1].Kind.Should().Be(Core.Visualization.FlagRule.MatchKind.Contains);
+    }
+
+    [Fact]
     public void Load_ReturnsDefaults_WhenFileIsCorrupt()
     {
         File.WriteAllText(_file, "{ this is not valid json ]");

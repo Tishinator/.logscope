@@ -42,6 +42,7 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand ApplyFilterPresetCommand { get; }
     public RelayCommand ReloadEncodingCommand { get; }
     public RelayCommand EditColorRulesCommand { get; }
+    public RelayCommand EditFlagRulesCommand { get; }
     public RelayCommand ToggleCompareCommand { get; }
     public RelayCommand ExitCompareCommand { get; }
 
@@ -71,8 +72,15 @@ public sealed class MainViewModel : ViewModelBase
         ApplyFilterPresetCommand = new RelayCommand(p => { if (p is FilterPreset fp) ApplyFilterPreset(fp); });
         ReloadEncodingCommand = new RelayCommand(p => ReloadWithEncoding(p as string));
         EditColorRulesCommand = new RelayCommand(EditColorRules);
+        EditFlagRulesCommand = new RelayCommand(EditFlagRules);
         ToggleCompareCommand = new RelayCommand(() => CompareMode = !CompareMode);
         ExitCompareCommand = new RelayCommand(() => CompareMode = false);
+
+        OpenTabs.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(CanCompare));
+            if (!CanCompare) CompareMode = false;
+        };
     }
 
     // ----- Synchronized side-by-side comparison (UR-13 / SR-09) -----
@@ -81,11 +89,18 @@ public sealed class MainViewModel : ViewModelBase
     public bool CompareMode
     {
         get => _compareMode;
-        set { if (SetField(ref _compareMode, value)) OnPropertyChanged(nameof(SingleMode)); }
+        set
+        {
+            if (value && !CanCompare) return; // split view requires 2+ logs
+            if (SetField(ref _compareMode, value)) OnPropertyChanged(nameof(SingleMode));
+        }
     }
     public bool SingleMode => !_compareMode;
 
-    private SyncMode _syncMode = SyncMode.Line;
+    /// <summary>Split view / sync only make sense with at least two logs open.</summary>
+    public bool CanCompare => OpenTabs.Count >= 2;
+
+    private SyncMode _syncMode = SyncMode.Off;
     public SyncMode SyncMode { get => _syncMode; set => SetField(ref _syncMode, value); }
     public Array SyncModes => Enum.GetValues(typeof(SyncMode));
 
@@ -171,6 +186,21 @@ public sealed class MainViewModel : ViewModelBase
         Settings.ColorRules = editor.Rules.ToList();
         SaveSettings();
 
+        ReapplyRulesToOpenTabs();
+    }
+
+    private void EditFlagRules()
+    {
+        var editor = new FlagRulesWindow(Settings.FlagRules) { Owner = Application.Current?.MainWindow };
+        if (editor.ShowDialog() != true) return;
+
+        Settings.FlagRules = editor.Rules.ToList();
+        SaveSettings();
+        ReapplyRulesToOpenTabs();
+    }
+
+    private void ReapplyRulesToOpenTabs()
+    {
         var colors = ColorRules();
         var flags = FlagRules();
         foreach (var tab in OpenTabs)

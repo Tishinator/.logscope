@@ -9,7 +9,11 @@ namespace LogScope.Core.Persistence;
 /// </summary>
 public sealed class ProfileRepository
 {
-    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+    };
 
     private readonly string _directory;
 

@@ -37,9 +37,7 @@
                 <Button Content="▶" Command="{Binding FindNextCommand}" Margin="0,0,16,0" Padding="6,2" ToolTip="Next match"/>
 
                 <CheckBox Content="Stream" Foreground="#7CD" VerticalAlignment="Center"
-                          IsChecked="{Binding StreamingEnabled}" ToolTip="Follow appended content" Margin="0,0,10,0"/>
-                <CheckBox Content="Sync" Foreground="#9C9" VerticalAlignment="Center"
-                          IsChecked="{Binding IsSyncEnabled}" ToolTip="Include this log in synchronized comparison" Margin="0,0,16,0"/>
+                          IsChecked="{Binding StreamingEnabled}" ToolTip="Follow appended content" Margin="0,0,16,0"/>
 
                 <Button Content="Restore order" Command="{Binding RestoreOrderCommand}" Padding="6,2" Margin="0,0,6,0"
                         ToolTip="Restore original file order (UR-09)"/>

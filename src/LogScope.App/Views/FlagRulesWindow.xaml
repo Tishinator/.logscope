@@ -1,0 +1,36 @@
+<Window x:Class="LogScope.App.Views.FlagRulesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:LogScope.App.ViewModels"
+        Title="Flag rules" Height="500" Width="760"
+        WindowStartupLocation="CenterOwner" Background="#252526" ShowInTaskbar="False">
+    <DockPanel Margin="14">
+        <TextBlock DockPanel.Dock="Top" Foreground="#AAA" TextWrapping="Wrap" Margin="0,0,0,8"
+                   Text="Flagged events drive the tab badge and the &quot;flagged only&quot; filter. Leave Field blank to test every field, or name a field (e.g. Level) to flag only when that field matches."/>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="OK" IsDefault="True" Click="OnOk" Width="90" Margin="0,0,8,0"/>
+            <Button Content="Cancel" IsCancel="True" Width="90"/>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Right" Margin="10,0,0,0" Width="120">
+            <Button Content="Add" Click="OnAdd" Margin="0,0,0,6" Padding="0,4"/>
+            <Button Content="Delete" Click="OnDelete" Margin="0,0,0,6" Padding="0,4"/>
+            <Button Content="Restore defaults" Click="OnRestoreDefaults" Margin="0,12,0,0" Padding="0,4"/>
+        </StackPanel>
+
+        <DataGrid x:Name="Grid" AutoGenerateColumns="False" CanUserAddRows="False"
+                  Background="#1E1E1E" Foreground="#DDD" RowBackground="#1E1E1E" GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column" SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridComboBoxColumn Header="Match type" Width="150"
+                                        SelectedItemBinding="{Binding Kind, UpdateSourceTrigger=PropertyChanged}"
+                                        ItemsSource="{x:Static vm:FlagRuleEditViewModel.Kinds}"/>
+                <DataGridTextColumn Header="Field (blank = any)" Width="180"
+                                    Binding="{Binding FieldName, UpdateSourceTrigger=PropertyChanged}"/>
+                <DataGridTextColumn Header="Value / pattern" Width="*"
+                                    Binding="{Binding MatchValue, UpdateSourceTrigger=PropertyChanged}"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

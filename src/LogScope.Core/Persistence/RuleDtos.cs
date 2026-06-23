@@ -47,7 +47,8 @@ public sealed class FlagRuleDto
     public FlagRule ToRule() => Kind switch
     {
         FlagRule.MatchKind.FieldValue => FlagRule.ForFieldValue(FieldName ?? "Level", MatchValue),
-        _ => FlagRule.ForRegex(MatchValue),
+        FlagRule.MatchKind.Contains => FlagRule.ForContains(MatchValue, FieldName),
+        _ => FlagRule.ForRegex(MatchValue, FieldName),
     };
 }
 

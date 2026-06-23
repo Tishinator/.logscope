@@ -66,11 +66,14 @@
                         <MenuItem Header="Import profile…" Command="{Binding ImportProfileCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
                     <MenuItem Header="_View" Foreground="#E6ECF2">
-                        <MenuItem Header="Compare open logs (side-by-side)" IsCheckable="True"
-                                  IsChecked="{Binding CompareMode}" Style="{StaticResource DropItem}"/>
+                        <MenuItem Header="Split view (side-by-side)" IsCheckable="True"
+                                  IsChecked="{Binding CompareMode}" IsEnabled="{Binding CanCompare}"
+                                  Style="{StaticResource DropItem}"
+                                  ToolTip="Open at least two logs to compare them side by side"/>
                     </MenuItem>
                     <MenuItem Header="_Settings" Foreground="#E6ECF2">
                         <MenuItem Header="Color rules…" Command="{Binding EditColorRulesCommand}" Style="{StaticResource DropItem}"/>
+                        <MenuItem Header="Flag rules…" Command="{Binding EditFlagRulesCommand}" Style="{StaticResource DropItem}"/>
                         <MenuItem Header="File extensions…" Command="{Binding EditExtensionsCommand}" Style="{StaticResource DropItem}"/>
                         <MenuItem Header="Reset settings…" Command="{Binding ResetSettingsCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
@@ -149,11 +152,11 @@
             <DockPanel Visibility="{Binding CompareMode, Converter={StaticResource BoolToVis}}">
                 <Border DockPanel.Dock="Top" Background="#2D2D30" Padding="8,5">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Comparing open logs" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <TextBlock Text="Split view" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <TextBlock Text="Sync:" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,4,0"/>
                         <ComboBox Width="120" VerticalAlignment="Center" ItemsSource="{Binding SyncModes}"
                                   SelectedItem="{Binding SyncMode}" Margin="0,0,12,0"/>
-                        <TextBlock Text="Select a row in one log to align the others. Toggle 'Sync' per log."
+                        <TextBlock Text="Sync is off by default. Pick Line/Timestamp, then select a row to align the panes flagged 'Sync'."
                                    Foreground="#888" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <Button Content="Exit compare" Command="{Binding ExitCompareCommand}" Padding="8,2"/>
                     </StackPanel>
@@ -169,7 +172,13 @@
                             <Border BorderBrush="#0E0E0E" BorderThickness="1">
                                 <DockPanel>
                                     <Border DockPanel.Dock="Top" Background="#1B2B3F" Padding="6,3">
-                                        <TextBlock Text="{Binding Title}" Foreground="#ECECEC" FontWeight="SemiBold"/>
+                                        <DockPanel>
+                                            <CheckBox DockPanel.Dock="Right" Content="Sync" Foreground="#9CD"
+                                                      VerticalAlignment="Center" IsChecked="{Binding IsSyncEnabled}"
+                                                      ToolTip="Include this log when synchronizing the split view"/>
+                                            <TextBlock Text="{Binding Title}" Foreground="#ECECEC" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"/>
+                                        </DockPanel>
                                     </Border>
                                     <views:LogTabView/>
                                 </DockPanel>

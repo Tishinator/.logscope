@@ -44,10 +44,19 @@ public sealed class FlagRuleEngine
             FlagRule.MatchKind.FieldValue =>
                 row.Fields.TryGetValue(rule.FieldName!, out var fv) && fv == rule.MatchValue,
 
+            FlagRule.MatchKind.Contains =>
+                TargetValues(rule, row).Any(v => v.Contains(rule.MatchValue, StringComparison.OrdinalIgnoreCase)),
+
             FlagRule.MatchKind.Regex =>
-                row.Fields.Values.Any(v => regex!.IsMatch(v)),
+                TargetValues(rule, row).Any(v => regex!.IsMatch(v)),
 
             _ => false
         };
     }
+
+    /// <summary>The field values a Contains/Regex rule tests: one named field, or all fields.</summary>
+    private static IEnumerable<string> TargetValues(FlagRule rule, ParsedRow row) =>
+        rule.FieldName != null
+            ? (row.Fields.TryGetValue(rule.FieldName, out var v) ? [v] : Array.Empty<string>())
+            : row.Fields.Values;
 }

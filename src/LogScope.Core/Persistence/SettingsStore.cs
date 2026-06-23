@@ -11,6 +11,8 @@ public sealed class SettingsStore
     private static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
+        // Serialize enums by name so inserting/reordering enum members never corrupts saved data.
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
     };
 
     private readonly string _filePath;
