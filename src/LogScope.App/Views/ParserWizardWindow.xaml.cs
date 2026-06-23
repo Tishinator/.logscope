@@ -40,22 +40,6 @@ public partial class ParserWizardWindow : Window
         Loaded += (_, _) => OnPreview(this, new RoutedEventArgs());
     }
 
-    /// <summary>Default a sensible type from a field's name (Timestamp/Level/Message/etc.).</summary>
-    private static FieldSemanticType GuessType(string name)
-    {
-        var n = name.Trim().ToLowerInvariant();
-        if (n.Contains("time") || n.Contains("date") || n == "ts") return FieldSemanticType.Timestamp;
-        if (n.Contains("level") || n == "lvl" || n == "severity") return FieldSemanticType.Level;
-        if (n.Contains("message") || n == "msg" || n == "text") return FieldSemanticType.Message;
-        if (n.Contains("module") || n.Contains("logger") || n.Contains("tag")) return FieldSemanticType.Module;
-        if (n.Contains("thread")) return FieldSemanticType.Thread;
-        if (n.Contains("device")) return FieldSemanticType.DeviceId;
-        if (n.Contains("test")) return FieldSemanticType.TestCase;
-        if (n.Contains("run")) return FieldSemanticType.RunId;
-        if (n.Contains("result")) return FieldSemanticType.Result;
-        return FieldSemanticType.Generic;
-    }
-
     private void SyncFieldTypeRows(IEnumerable<string> fieldNames)
     {
         var existing = _fieldTypes.ToDictionary(r => r.Name, r => r.Type);
@@ -63,7 +47,7 @@ public partial class ParserWizardWindow : Window
         foreach (var name in fieldNames)
         {
             if (name == "RawText") continue;
-            var type = existing.TryGetValue(name, out var t) ? t : GuessType(name);
+            var type = existing.TryGetValue(name, out var t) ? t : FieldSemanticGuesser.Guess(name);
             _fieldTypes.Add(new FieldTypeRow { Name = name, Type = type });
         }
     }

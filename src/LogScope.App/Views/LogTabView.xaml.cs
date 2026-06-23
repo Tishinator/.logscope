@@ -33,14 +33,25 @@ public partial class LogTabView : UserControl
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (_vm != null)
+        {
             _vm.RestoreOrderRequested -= RestoreOrder;
+            _vm.ScrollToRowRequested -= ScrollToRow;
+        }
 
         if (e.NewValue is LogTabViewModel vm)
         {
             _vm = vm;
             _vm.RestoreOrderRequested += RestoreOrder;
+            _vm.ScrollToRowRequested += ScrollToRow;
             GenerateColumns(vm);
         }
+    }
+
+    /// <summary>Scrolls a synced selection into view (UR-13).</summary>
+    private void ScrollToRow(LogRowViewModel row)
+    {
+        if (row != null)
+            Dispatcher.InvokeAsync(() => Grid.ScrollIntoView(row));
     }
 
     /// <summary>

@@ -65,6 +65,10 @@
                         <MenuItem Header="Edit parser for current tab…" Command="{Binding EditParserCommand}" Style="{StaticResource DropItem}"/>
                         <MenuItem Header="Import profile…" Command="{Binding ImportProfileCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
+                    <MenuItem Header="_View" Foreground="#E6ECF2">
+                        <MenuItem Header="Compare open logs (side-by-side)" IsCheckable="True"
+                                  IsChecked="{Binding CompareMode}" Style="{StaticResource DropItem}"/>
+                    </MenuItem>
                     <MenuItem Header="_Settings" Foreground="#E6ECF2">
                         <MenuItem Header="Color rules…" Command="{Binding EditColorRulesCommand}" Style="{StaticResource DropItem}"/>
                         <MenuItem Header="File extensions…" Command="{Binding EditExtensionsCommand}" Style="{StaticResource DropItem}"/>
@@ -138,8 +142,46 @@
 
             <GridSplitter x:Name="WorkspaceSplitter" Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#1A1A1A"/>
 
-            <!-- Right: open log tabs -->
-            <TabControl Grid.Column="2" Background="#1E1E1E" BorderThickness="0"
+            <!-- Right: single-tab view OR side-by-side compare -->
+            <Grid Grid.Column="2">
+
+            <!-- ===== Compare mode (UR-13) ===== -->
+            <DockPanel Visibility="{Binding CompareMode, Converter={StaticResource BoolToVis}}">
+                <Border DockPanel.Dock="Top" Background="#2D2D30" Padding="8,5">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Comparing open logs" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <TextBlock Text="Sync:" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <ComboBox Width="120" VerticalAlignment="Center" ItemsSource="{Binding SyncModes}"
+                                  SelectedItem="{Binding SyncMode}" Margin="0,0,12,0"/>
+                        <TextBlock Text="Select a row in one log to align the others. Toggle 'Sync' per log."
+                                   Foreground="#888" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <Button Content="Exit compare" Command="{Binding ExitCompareCommand}" Padding="8,2"/>
+                    </StackPanel>
+                </Border>
+                <ItemsControl ItemsSource="{Binding OpenTabs}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="1"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#0E0E0E" BorderThickness="1">
+                                <DockPanel>
+                                    <Border DockPanel.Dock="Top" Background="#1B2B3F" Padding="6,3">
+                                        <TextBlock Text="{Binding Title}" Foreground="#ECECEC" FontWeight="SemiBold"/>
+                                    </Border>
+                                    <views:LogTabView/>
+                                </DockPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </DockPanel>
+
+            <!-- ===== Single-tab mode ===== -->
+            <TabControl Visibility="{Binding SingleMode, Converter={StaticResource BoolToVis}}"
+                        Background="#1E1E1E" BorderThickness="0"
                         ItemsSource="{Binding OpenTabs}" SelectedItem="{Binding SelectedTab}">
                 <TabControl.ItemTemplate>
                     <DataTemplate>
@@ -173,6 +215,8 @@
                     </DataTemplate>
                 </TabControl.ContentTemplate>
             </TabControl>
+
+            </Grid>
         </Grid>
         </Grid>
     </DockPanel>

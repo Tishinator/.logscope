@@ -29,6 +29,7 @@ Grab the latest `LogScope.exe` from the [Releases page](https://github.com/Tishi
 - **Filter presets** — save the current filter as a named preset and reapply it later.
 - **Field types / templates** — assign a semantic type to each field (Timestamp, Level, Module, Message, Thread, Device ID, Test Case, Run ID, Result). The Level field sorts by a configurable severity order (with custom levels), not alphabetically.
 - **Custom color rules** — author your own row/field visual rules (field value, message-contains, or regex → color, with priority) in Settings ▸ Color rules; they persist.
+- **Side-by-side synchronized comparison** — open multiple logs and compare them side by side (View ▸ Compare). Selecting a row in one aligns the others by physical line number or by nearest timestamp; sync is toggleable per log, and timestamp mode falls back to line sync (with a notice) when a log has no timestamp.
 - **Collapsible workspace panel** — collapse the file tree accordion-style to give logs more room.
 - **Persistence** — window size, included extensions, profile assignments, presets, and color rules are saved between sessions, under your app-data folder (never in the log directory). Reset from the Settings menu.
 
@@ -47,11 +48,12 @@ file-level profile assignment, profile import/export, field/text/regex filtering
 (case/whole-word/regex with next/prev), column sorting + restore-file-order, configurable color &
 flag rules, flagged indicators (tab badges + status), near-real-time streaming, copy
 (rows/raw/line-refs), reveal-in-Explorer / open-in-editor, hover metadata, encoding detection +
-manual override, filter presets, settings persistence, and a large-file safety cap backed by a
-byte-offset line index.
+manual override, filter presets, field semantic types with custom level severity, side-by-side
+synchronized comparison (line/timestamp), settings persistence, and a large-file safety cap backed
+by a byte-offset line index.
 
-Not yet implemented (planned): side-by-side synchronized views (line/timestamp sync) and advanced
-cross-log synchronized search.
+Not yet implemented (planned): advanced cross-log synchronized search, and live scroll-linked
+(not just selection-linked) synchronization.
 
 ## Project layout
 

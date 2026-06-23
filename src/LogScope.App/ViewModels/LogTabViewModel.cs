@@ -100,6 +100,44 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         try { Clipboard.SetText(text); } catch { /* clipboard can be transiently locked */ }
     }
 
+    // ---- Synchronized comparison (UR-13) ----
+    private bool _isSyncEnabled = true;
+    public bool IsSyncEnabled { get => _isSyncEnabled; set => SetField(ref _isSyncEnabled, value); }
+
+    /// <summary>Highest physical line number currently loaded.</summary>
+    public int LastLineNumber => _document.Rows.Count > 0 ? _document.Rows[^1].LineNumber : 0;
+
+    /// <summary>(line, timestamp) pairs from the Timestamp-typed field, for timestamp sync.</summary>
+    public IReadOnlyList<(int Line, DateTime Timestamp)> TimestampedRows()
+    {
+        var field = _document.Profile.TimestampField;
+        if (field == null) return [];
+
+        var list = new List<(int, DateTime)>();
+        foreach (var row in _document.Rows)
+        {
+            if (row.Fields.TryGetValue(field, out var value) &&
+                Core.Sync.TimestampParser.TryParse(value) is { } ts)
+                list.Add((row.LineNumber, ts));
+        }
+        return list;
+    }
+
+    public bool HasTimestampField => _document.Profile.TimestampField != null;
+
+    /// <summary>Raised when a synced selection should be scrolled into view.</summary>
+    public event Action<LogRowViewModel>? ScrollToRowRequested;
+
+    /// <summary>Selects (and scrolls to) the row for the given physical line, or the nearest visible row.</summary>
+    public void SelectLine(int line)
+    {
+        if (Rows.Count == 0) return;
+        var match = Rows.FirstOrDefault(r => r.LineNumber == line)
+                    ?? Rows.OrderBy(r => Math.Abs(r.LineNumber - line)).First();
+        SelectedRow = match;
+        ScrollToRowRequested?.Invoke(match);
+    }
+
     // ---- View mode ----
     private bool _isRawView;
     public bool IsRawView

@@ -7,6 +7,7 @@ using LogScope.App.Views;
 using LogScope.Core.Documents;
 using LogScope.Core.Parsing;
 using LogScope.Core.Persistence;
+using LogScope.Core.Sync;
 using LogScope.Core.Visualization;
 using LogScope.Core.Workspace;
 
@@ -41,6 +42,8 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand ApplyFilterPresetCommand { get; }
     public RelayCommand ReloadEncodingCommand { get; }
     public RelayCommand EditColorRulesCommand { get; }
+    public RelayCommand ToggleCompareCommand { get; }
+    public RelayCommand ExitCompareCommand { get; }
 
     public MainViewModel()
     {
@@ -68,6 +71,91 @@ public sealed class MainViewModel : ViewModelBase
         ApplyFilterPresetCommand = new RelayCommand(p => { if (p is FilterPreset fp) ApplyFilterPreset(fp); });
         ReloadEncodingCommand = new RelayCommand(p => ReloadWithEncoding(p as string));
         EditColorRulesCommand = new RelayCommand(EditColorRules);
+        ToggleCompareCommand = new RelayCommand(() => CompareMode = !CompareMode);
+        ExitCompareCommand = new RelayCommand(() => CompareMode = false);
+    }
+
+    // ----- Synchronized side-by-side comparison (UR-13 / SR-09) -----
+
+    private bool _compareMode;
+    public bool CompareMode
+    {
+        get => _compareMode;
+        set { if (SetField(ref _compareMode, value)) OnPropertyChanged(nameof(SingleMode)); }
+    }
+    public bool SingleMode => !_compareMode;
+
+    private SyncMode _syncMode = SyncMode.Line;
+    public SyncMode SyncMode { get => _syncMode; set => SetField(ref _syncMode, value); }
+    public Array SyncModes => Enum.GetValues(typeof(SyncMode));
+
+    private bool _syncing;
+    private bool _timestampWarningShown;
+
+    private void OnTabSelectionChanged(LogTabViewModel source)
+    {
+        if (_syncing || !CompareMode || SyncMode == SyncMode.Off) return;
+        if (!source.IsSyncEnabled || source.SelectedRow == null) return;
+
+        _syncing = true;
+        try
+        {
+            if (SyncMode == SyncMode.Timestamp)
+                SyncByTimestamp(source);
+            else
+                SyncByLine(source);
+        }
+        finally { _syncing = false; }
+    }
+
+    private void SyncByLine(LogTabViewModel source)
+    {
+        int refLine = source.SelectedRow!.LineNumber;
+        foreach (var tab in OpenTabs)
+        {
+            if (tab == source || !tab.IsSyncEnabled) continue;
+            tab.SelectLine(SyncAligner.AlignByLine(refLine, tab.LastLineNumber));
+        }
+    }
+
+    private void SyncByTimestamp(LogTabViewModel source)
+    {
+        var field = source.CurrentProfile.TimestampField;
+        var refValue = field != null ? source.SelectedRow!.GetField(field) : null;
+        var refTs = TimestampParser.TryParse(refValue);
+
+        if (refTs == null)
+        {
+            WarnTimestampFallback();
+            SyncByLine(source);
+            return;
+        }
+
+        foreach (var tab in OpenTabs)
+        {
+            if (tab == source || !tab.IsSyncEnabled) continue;
+
+            var rows = tab.TimestampedRows();
+            if (rows.Count == 0)
+            {
+                WarnTimestampFallback();
+                tab.SelectLine(SyncAligner.AlignByLine(source.SelectedRow!.LineNumber, tab.LastLineNumber));
+                continue;
+            }
+
+            var line = SyncAligner.NearestByTimestamp(rows, refTs.Value);
+            if (line.HasValue) tab.SelectLine(line.Value);
+        }
+    }
+
+    private void WarnTimestampFallback()
+    {
+        if (_timestampWarningShown) return;
+        _timestampWarningShown = true;
+        MessageBox.Show(
+            "One or more logs has no usable Timestamp field, so line-number synchronization is used as a fallback.\n\n" +
+            "Tip: assign a field the 'Timestamp' type in the parser setup to enable timestamp sync.",
+            "Timestamp sync", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     // ----- Color / flag rules (UR-10) -----
@@ -213,6 +301,7 @@ public sealed class MainViewModel : ViewModelBase
             var profile = ResolveProfile(filePath);
             var doc = LogDocument.Load(filePath, profile, encoding: null, LogDocument.DefaultMaxLines);
             var tab = new LogTabViewModel(doc, ColorRules(), FlagRules());
+            tab.PropertyChanged += OnTabPropertyChanged;
             OpenTabs.Add(tab);
             SelectedTab = tab;
         }
@@ -242,6 +331,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             var p = LogProfile.Delimited(suggestion.Delimiter, suggestion.SuggestedFieldNames.ToList());
             p.Name = "Auto-detected";
+            FieldSemanticGuesser.ApplyGuessedTypes(p); // type Timestamp/Level/etc. so sync + severity sort work
             return p;
         }
         var raw = LogProfile.Raw();
@@ -251,8 +341,15 @@ public sealed class MainViewModel : ViewModelBase
 
     public void CloseTab(LogTabViewModel tab)
     {
+        tab.PropertyChanged -= OnTabPropertyChanged;
         tab.Dispose();
         OpenTabs.Remove(tab);
+    }
+
+    private void OnTabPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(LogTabViewModel.SelectedRow) && sender is LogTabViewModel tab)
+            OnTabSelectionChanged(tab);
     }
 
     // ----- Profiles -----
