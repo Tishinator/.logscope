@@ -1,4 +1,8 @@
-# .logscope
+<p align="center">
+  <img src="assets/logscope-logo.png" alt=".logscope logo" width="280">
+</p>
+
+<h1 align="center">.logscope</h1>
 
 A read-only, fully offline log analysis tool for SDETs and other technical users. Inspect, parse, filter, search, and monitor sensitive plain-text log files on Windows — without ever modifying them or sending data anywhere.
 
