@@ -60,6 +60,18 @@
                       Background="#1E1E1E" Foreground="#DDD" RowBackground="Transparent"
                       BorderThickness="0" FontFamily="Consolas"
                       RowDetailsVisibilityMode="VisibleWhenSelected">
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#3C4A5E"/>
+                        <Setter Property="Foreground" Value="#F2F4F7"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="FontFamily" Value="Segoe UI"/>
+                        <Setter Property="Padding" Value="9,6"/>
+                        <Setter Property="BorderBrush" Value="#22303F"/>
+                        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
                         <Setter Property="Background" Value="{Binding RowBackground, Converter={StaticResource HexToBrush}}"/>

@@ -5,6 +5,7 @@
         xmlns:views="clr-namespace:LogScope.App.Views"
         xmlns:conv="clr-namespace:LogScope.App.Converters"
         Title=".logscope" Height="700" Width="1150"
+        Icon="Assets/app.ico"
         Background="#252526">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
@@ -18,13 +19,39 @@
         </HierarchicalDataTemplate>
     </Window.Resources>
 
-    <Grid>
+    <DockPanel>
+        <!-- ===== Branded header bar ===== -->
+        <Border DockPanel.Dock="Top" Padding="12,7">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                    <GradientStop Color="#1B2B3F" Offset="0"/>
+                    <GradientStop Color="#22344C" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Image Source="Assets/logo.png" Height="30" Width="30" Margin="0,0,9,0"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                <TextBlock VerticalAlignment="Center">
+                    <Run Text="." Foreground="#2B8CE6" FontSize="21" FontWeight="Bold"/><Run Text="logscope" Foreground="#ECECEC" FontSize="21" FontWeight="SemiBold"/>
+                </TextBlock>
+                <Border Background="#14B8A6" CornerRadius="3" Padding="5,1" Margin="12,2,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="read-only" Foreground="#0C2A26" FontSize="10" FontWeight="SemiBold"/>
+                </Border>
+                <TextBlock Text="offline log analysis" Foreground="#7C99B8" FontSize="11"
+                           VerticalAlignment="Center" Margin="10,1,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <Grid>
         <!-- ===== Landing screen (no workspace) ===== -->
         <Grid Visibility="{Binding HasWorkspace, Converter={StaticResource InverseBoolToVis}}"
               x:Name="LandingPanel">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text=".logscope" FontSize="42" FontWeight="Light" Foreground="#4EC9B0"
-                           HorizontalAlignment="Center"/>
+                <Image Source="Assets/logo.png" Height="96" Width="96" HorizontalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,0,12"/>
+                <TextBlock HorizontalAlignment="Center" Margin="0,0,0,2">
+                    <Run Text="." Foreground="#2B8CE6" FontSize="40" FontWeight="Bold"/><Run Text="logscope" Foreground="#ECECEC" FontSize="40" FontWeight="Light"/>
+                </TextBlock>
                 <TextBlock Text="Read-only log analysis for SDETs — offline and safe."
                            FontSize="14" Foreground="#999" HorizontalAlignment="Center" Margin="0,4,0,28"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -86,5 +113,6 @@
                 </TabControl.ContentTemplate>
             </TabControl>
         </Grid>
-    </Grid>
+        </Grid>
+    </DockPanel>
 </Window>
