@@ -49,29 +49,32 @@
             </Border.Background>
             <DockPanel>
                 <!-- Right-aligned menu -->
-                <Menu DockPanel.Dock="Right" Background="Transparent" VerticalAlignment="Center" Foreground="#DDD">
-                    <MenuItem Header="_Open" Foreground="#1B2B3F">
-                        <MenuItem Header="Open File…" Command="{Binding OpenFileCommand}"/>
-                        <MenuItem Header="Open Folder…" Command="{Binding OpenFolderCommand}"/>
+                <Menu DockPanel.Dock="Right" Background="Transparent" VerticalAlignment="Center">
+                    <Menu.Resources>
+                        <!-- Child (dropdown) items render on the light system popup -->
+                        <Style x:Key="DropItem" TargetType="MenuItem">
+                            <Setter Property="Foreground" Value="#1B2B3F"/>
+                        </Style>
+                    </Menu.Resources>
+                    <MenuItem Header="_Open" Foreground="#E6ECF2">
+                        <MenuItem Header="Open File…" Command="{Binding OpenFileCommand}" Style="{StaticResource DropItem}"/>
+                        <MenuItem Header="Open Folder…" Command="{Binding OpenFolderCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
-                    <MenuItem Header="_Profiles" Foreground="#1B2B3F">
-                        <MenuItem Header="New parser profile… (for current file)" Command="{Binding NewProfileCommand}"/>
-                        <MenuItem Header="Edit parser for current tab…" Command="{Binding EditParserCommand}"/>
-                        <MenuItem Header="Import profile…" Command="{Binding ImportProfileCommand}"/>
+                    <MenuItem Header="_Profiles" Foreground="#E6ECF2">
+                        <MenuItem Header="New parser profile… (for current file)" Command="{Binding NewProfileCommand}" Style="{StaticResource DropItem}"/>
+                        <MenuItem Header="Edit parser for current tab…" Command="{Binding EditParserCommand}" Style="{StaticResource DropItem}"/>
+                        <MenuItem Header="Import profile…" Command="{Binding ImportProfileCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
-                    <MenuItem Header="_Settings" Foreground="#1B2B3F">
-                        <MenuItem Header="File extensions…" Command="{Binding EditExtensionsCommand}"/>
-                        <MenuItem Header="Reset settings…" Command="{Binding ResetSettingsCommand}"/>
+                    <MenuItem Header="_Settings" Foreground="#E6ECF2">
+                        <MenuItem Header="File extensions…" Command="{Binding EditExtensionsCommand}" Style="{StaticResource DropItem}"/>
+                        <MenuItem Header="Reset settings…" Command="{Binding ResetSettingsCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
                 </Menu>
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Image Source="Assets/logo-mark.png" Height="32" Width="32" Margin="0,0,10,0"
+                    <Image Source="Assets/logo-full.png" Height="34" Margin="0,0,2,0"
                            RenderOptions.BitmapScalingMode="HighQuality"/>
-                    <TextBlock VerticalAlignment="Center">
-                        <Run Text="." Foreground="#2B8CE6" FontSize="21" FontWeight="Bold"/><Run Text="logscope" Foreground="#ECECEC" FontSize="21" FontWeight="SemiBold"/>
-                    </TextBlock>
-                    <Border Background="#14B8A6" CornerRadius="3" Padding="5,1" Margin="12,2,0,0" VerticalAlignment="Center">
+                    <Border Background="#14B8A6" CornerRadius="3" Padding="5,1" Margin="14,2,0,0" VerticalAlignment="Center">
                         <TextBlock Text="read-only" Foreground="#0C2A26" FontSize="10" FontWeight="SemiBold"/>
                     </Border>
                     <TextBlock Text="offline log analysis" Foreground="#7C99B8" FontSize="11"
@@ -85,8 +88,8 @@
         <Grid Visibility="{Binding HasWorkspace, Converter={StaticResource InverseBoolToVis}}"
               x:Name="LandingPanel">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Image Source="Assets/logo-full.png" Height="200" HorizontalAlignment="Center"
-                       RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,0,18"/>
+                <Image Source="Assets/logo-full.png" Width="460" HorizontalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,0,22"/>
                 <TextBlock Text="Read-only log analysis for SDETs — offline and safe."
                            FontSize="14" Foreground="#999" HorizontalAlignment="Center" Margin="0,0,0,28"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">

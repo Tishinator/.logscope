@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logscope-logo.png" alt=".logscope logo" width="280">
+  <img src="assets/full-logo-light.png" alt=".logscope logo" width="440">
 </p>
 
 <h1 align="center">.logscope</h1>
