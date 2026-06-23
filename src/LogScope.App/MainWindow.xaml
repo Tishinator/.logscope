@@ -29,7 +29,7 @@
                 </LinearGradientBrush>
             </Border.Background>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Image Source="Assets/logo.png" Height="30" Width="30" Margin="0,0,9,0"
+                <Image Source="Assets/logo-mark.png" Height="32" Width="32" Margin="0,0,10,0"
                        RenderOptions.BitmapScalingMode="HighQuality"/>
                 <TextBlock VerticalAlignment="Center">
                     <Run Text="." Foreground="#2B8CE6" FontSize="21" FontWeight="Bold"/><Run Text="logscope" Foreground="#ECECEC" FontSize="21" FontWeight="SemiBold"/>
@@ -47,13 +47,10 @@
         <Grid Visibility="{Binding HasWorkspace, Converter={StaticResource InverseBoolToVis}}"
               x:Name="LandingPanel">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Image Source="Assets/logo.png" Height="96" Width="96" HorizontalAlignment="Center"
-                       RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,0,12"/>
-                <TextBlock HorizontalAlignment="Center" Margin="0,0,0,2">
-                    <Run Text="." Foreground="#2B8CE6" FontSize="40" FontWeight="Bold"/><Run Text="logscope" Foreground="#ECECEC" FontSize="40" FontWeight="Light"/>
-                </TextBlock>
+                <Image Source="Assets/logo-full.png" Height="200" HorizontalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,0,18"/>
                 <TextBlock Text="Read-only log analysis for SDETs — offline and safe."
-                           FontSize="14" Foreground="#999" HorizontalAlignment="Center" Margin="0,4,0,28"/>
+                           FontSize="14" Foreground="#999" HorizontalAlignment="Center" Margin="0,0,0,28"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                     <Button Content="Open File…" Command="{Binding OpenFileCommand}"
                             Padding="20,10" Margin="0,0,12,0" FontSize="14"/>
