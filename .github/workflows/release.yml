@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Test
+        run: dotnet test tests/LogScope.Core.Tests --configuration Release
+
+      - name: Publish self-contained single-file exe
+        run: >
+          dotnet publish src/LogScope.App/LogScope.App.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --output publish
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=none
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          Compress-Archive -Path publish/LogScope.exe -DestinationPath "logscope-$version-win-x64.zip" -Force
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: .logscope ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            publish/LogScope.exe
+            logscope-${{ github.ref_name }}-win-x64.zip
