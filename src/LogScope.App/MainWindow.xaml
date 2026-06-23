@@ -63,6 +63,30 @@
                     <MenuItem Header="_Profiles" Foreground="#E6ECF2">
                         <MenuItem Header="New parser profile… (for current file)" Command="{Binding NewProfileCommand}" Style="{StaticResource DropItem}"/>
                         <MenuItem Header="Edit parser for current tab…" Command="{Binding EditParserCommand}" Style="{StaticResource DropItem}"/>
+                        <Separator/>
+                        <MenuItem Header="Apply saved profile to current tab" Tag="{Binding}"
+                                  ItemsSource="{Binding SavedProfiles}" Foreground="#1B2B3F">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding Name}"/>
+                                    <Setter Property="Foreground" Value="#1B2B3F"/>
+                                    <Setter Property="Command" Value="{Binding Tag.AssignProfileToFileCommand, RelativeSource={RelativeSource AncestorType=MenuItem}}"/>
+                                    <Setter Property="CommandParameter" Value="{Binding}"/>
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+                        <MenuItem Header="Set saved profile as folder default" Tag="{Binding}"
+                                  ItemsSource="{Binding SavedProfiles}" Foreground="#1B2B3F">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding Name}"/>
+                                    <Setter Property="Foreground" Value="#1B2B3F"/>
+                                    <Setter Property="Command" Value="{Binding Tag.AssignProfileToFolderCommand, RelativeSource={RelativeSource AncestorType=MenuItem}}"/>
+                                    <Setter Property="CommandParameter" Value="{Binding}"/>
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+                        <Separator/>
                         <MenuItem Header="Import profile…" Command="{Binding ImportProfileCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
                     <MenuItem Header="_View" Foreground="#E6ECF2">

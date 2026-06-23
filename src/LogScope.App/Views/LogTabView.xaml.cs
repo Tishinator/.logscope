@@ -36,6 +36,7 @@ public partial class LogTabView : UserControl
         {
             _vm.RestoreOrderRequested -= RestoreOrder;
             _vm.ScrollToRowRequested -= ScrollToRow;
+            _vm.ColumnsChanged -= OnColumnsChanged;
         }
 
         if (e.NewValue is LogTabViewModel vm)
@@ -43,8 +44,15 @@ public partial class LogTabView : UserControl
             _vm = vm;
             _vm.RestoreOrderRequested += RestoreOrder;
             _vm.ScrollToRowRequested += ScrollToRow;
+            _vm.ColumnsChanged += OnColumnsChanged;
             GenerateColumns(vm);
         }
+    }
+
+    /// <summary>Rebuild grid columns after a new parser profile is applied to this tab.</summary>
+    private void OnColumnsChanged()
+    {
+        if (_vm != null) GenerateColumns(_vm);
     }
 
     /// <summary>Scrolls a synced selection into view (UR-13).</summary>

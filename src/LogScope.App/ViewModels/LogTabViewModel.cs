@@ -69,6 +69,9 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         RefreshView();
     }
 
+    /// <summary>Raised when the column set changes so the view can rebuild the grid columns.</summary>
+    public event Action? ColumnsChanged;
+
     /// <summary>Replaces the underlying document (e.g. after applying a new parser profile).</summary>
     public void ApplyDocument(LogDocument document)
     {
@@ -80,6 +83,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(EncodingName));
         OnPropertyChanged(nameof(EncodingWarning));
         RefreshView();
+        ColumnsChanged?.Invoke();
     }
 
     private enum CopyMode { Tsv, Raw, LineRefs }
