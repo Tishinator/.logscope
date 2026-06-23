@@ -99,7 +99,7 @@
                       VirtualizingPanel.IsVirtualizing="True"
                       VirtualizingPanel.VirtualizationMode="Recycling"
                       GridLinesVisibility="Horizontal" HeadersVisibility="Column"
-                      Background="#1E1E1E" Foreground="#DDD" RowBackground="Transparent"
+                      Background="#1E1E1E" Foreground="#DDD"
                       BorderThickness="0" FontFamily="Consolas"
                       RowDetailsVisibilityMode="VisibleWhenSelected">
                 <DataGrid.ContextMenu>
@@ -128,6 +128,20 @@
                         <Setter Property="Background" Value="{Binding RowBackground, Converter={StaticResource HexToBrush}}"/>
                     </Style>
                 </DataGrid.RowStyle>
+                <!-- Transparent cells so the row tint (color rules) shows through -->
+                <DataGrid.CellStyle>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Foreground" Value="#DDD"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#264F78"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.CellStyle>
                 <DataGrid.RowDetailsTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding ContinuationText}" Foreground="#9CDCFE"
