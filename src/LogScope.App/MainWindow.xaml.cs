@@ -1,23 +1,45 @@
-﻿using System.Text;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using LogScope.App.ViewModels;
 
 namespace LogScope.App;
 
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
 public partial class MainWindow : Window
 {
+    private readonly MainViewModel _vm = new();
+
     public MainWindow()
     {
         InitializeComponent();
+        DataContext = _vm;
+    }
+
+    /// <summary>Open a file or directory path (from the command line / Explorer).</summary>
+    public void OpenPath(string path)
+    {
+        if (Directory.Exists(path))
+            _vm.LoadWorkspace(path);
+        else if (File.Exists(path))
+        {
+            _vm.OpenSingleFile(path);
+        }
+    }
+
+    private void OnNodeClicked(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2 &&
+            sender is FrameworkElement { DataContext: WorkspaceNodeViewModel { IsFile: true } node })
+        {
+            _vm.OpenLog(node.FilePath!);
+            e.Handled = true;
+        }
+    }
+
+    private void OnCloseTab(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: LogTabViewModel tab })
+            _vm.CloseTab(tab);
     }
 }

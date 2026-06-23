@@ -14,3 +14,8 @@ obj/
 # OS
 Thumbs.db
 .DS_Store
+
+# Local sample data / publish output
+sample-logs/
+publish/
+*.zip
