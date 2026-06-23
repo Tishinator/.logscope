@@ -24,10 +24,31 @@ Grab the latest `LogScope.exe` from the [Releases page](https://github.com/Tishi
 - **Streaming** — follow a log that is actively being appended; the view updates within ~1 second.
 - **External actions** — reveal a file in Explorer or open it in your default editor.
 
+- **Parser profiles** — create reusable delimited/regex profiles in a wizard with live preview; assign a profile to a directory (applies to subfolders) or override per file; import/export profiles as local files.
+- **Encoding** — auto-detects UTF-8 / UTF-16 (LE/BE) and falls back to Windows-1252 (ANSI) with a warning; you can also force an encoding from the toolbar.
+- **Filter presets** — save the current filter as a named preset and reapply it later.
+- **Persistence** — window size, included extensions, profile assignments, and presets are saved between sessions, under your app-data folder (never in the log directory). Reset from the Settings menu.
+
 ## Safety guarantees
 
 - **Read-only.** Source log files and their folders are never modified, renamed, deleted, or written to.
 - **Offline.** No telemetry, no network requests, no local server or listening port.
+- **Out-of-workspace state.** All profiles, settings, and presets live under `%APPDATA%\logscope` — never inside the selected workspace.
+
+## Requirement coverage
+
+Implemented for this release: directory/single-file open, recursive `.log` tree with configurable
+extensions, table & raw views with physical line numbers, raw fallback, format auto-detection,
+delimiter & regex parsing, multiline event grouping, a parser wizard with preview, directory- and
+file-level profile assignment, profile import/export, field/text/regex filtering, search
+(case/whole-word/regex with next/prev), column sorting + restore-file-order, configurable color &
+flag rules, flagged indicators (tab badges + status), near-real-time streaming, copy
+(rows/raw/line-refs), reveal-in-Explorer / open-in-editor, hover metadata, encoding detection +
+manual override, filter presets, settings persistence, and a large-file safety cap backed by a
+byte-offset line index.
+
+Not yet implemented (planned): side-by-side synchronized views (line/timestamp sync) and advanced
+cross-log synchronized search.
 
 ## Project layout
 
