@@ -64,4 +64,30 @@ public partial class MainWindow : Window
         if (sender is Button { Tag: LogTabViewModel tab })
             _vm.CloseTab(tab);
     }
+
+    private bool _workspaceCollapsed;
+    private GridLength _lastWorkspaceWidth = new(260);
+
+    /// <summary>Collapse/expand the workspace panel accordion-style.</summary>
+    private void OnToggleWorkspace(object sender, RoutedEventArgs e)
+    {
+        _workspaceCollapsed = !_workspaceCollapsed;
+        if (_workspaceCollapsed)
+        {
+            _lastWorkspaceWidth = WorkspaceColumn.Width;
+            WorkspaceColumn.Width = new GridLength(26);
+            WorkspaceHeaderDetails.Visibility = Visibility.Collapsed;
+            Tree.Visibility = Visibility.Collapsed;
+            WorkspaceSplitter.Visibility = Visibility.Collapsed;
+            WorkspaceToggle.Content = "▶";
+        }
+        else
+        {
+            WorkspaceColumn.Width = _lastWorkspaceWidth.Value > 26 ? _lastWorkspaceWidth : new GridLength(260);
+            WorkspaceHeaderDetails.Visibility = Visibility.Visible;
+            Tree.Visibility = Visibility.Visible;
+            WorkspaceSplitter.Visibility = Visibility.Visible;
+            WorkspaceToggle.Content = "◀";
+        }
+    }
 }

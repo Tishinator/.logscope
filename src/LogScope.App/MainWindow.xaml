@@ -105,19 +105,24 @@
         <!-- ===== Workspace view ===== -->
         <Grid Visibility="{Binding HasWorkspace, Converter={StaticResource BoolToVis}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="260" MinWidth="160"/>
+                <ColumnDefinition x:Name="WorkspaceColumn" Width="260" MinWidth="26"/>
                 <ColumnDefinition Width="4"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left: workspace tree -->
+            <!-- Left: workspace tree (collapsible accordion-style) -->
             <DockPanel Grid.Column="0" Background="#252526">
-                <Border DockPanel.Dock="Top" Background="#333" Padding="8,6">
+                <Border DockPanel.Dock="Top" Background="#333" Padding="4,6">
                     <DockPanel>
-                        <TextBlock Text="WORKSPACE" Foreground="#999" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="File" Command="{Binding OpenFileCommand}" Padding="6,1" Margin="0,0,4,0" FontSize="11"/>
-                            <Button Content="Folder" Command="{Binding OpenFolderCommand}" Padding="6,1" FontSize="11"/>
+                        <Button x:Name="WorkspaceToggle" DockPanel.Dock="Left" Content="◀" Click="OnToggleWorkspace"
+                                Width="20" Padding="0" Margin="0,0,4,0" FontSize="11" BorderThickness="0"
+                                Background="Transparent" Foreground="#CCC" ToolTip="Collapse / expand the workspace panel"/>
+                        <StackPanel x:Name="WorkspaceHeaderDetails" Orientation="Horizontal">
+                            <TextBlock Text="WORKSPACE" Foreground="#999" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                <Button Content="File" Command="{Binding OpenFileCommand}" Padding="6,1" Margin="0,0,4,0" FontSize="11"/>
+                                <Button Content="Folder" Command="{Binding OpenFolderCommand}" Padding="6,1" FontSize="11"/>
+                            </StackPanel>
                         </StackPanel>
                     </DockPanel>
                 </Border>
@@ -131,7 +136,7 @@
                 </TreeView>
             </DockPanel>
 
-            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#1A1A1A"/>
+            <GridSplitter x:Name="WorkspaceSplitter" Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#1A1A1A"/>
 
             <!-- Right: open log tabs -->
             <TabControl Grid.Column="2" Background="#1E1E1E" BorderThickness="0"

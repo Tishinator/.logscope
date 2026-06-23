@@ -27,7 +27,10 @@ Grab the latest `LogScope.exe` from the [Releases page](https://github.com/Tishi
 - **Parser profiles** — create reusable delimited/regex profiles in a wizard with live preview; assign a profile to a directory (applies to subfolders) or override per file; import/export profiles as local files.
 - **Encoding** — auto-detects UTF-8 / UTF-16 (LE/BE) and falls back to Windows-1252 (ANSI) with a warning; you can also force an encoding from the toolbar.
 - **Filter presets** — save the current filter as a named preset and reapply it later.
-- **Persistence** — window size, included extensions, profile assignments, and presets are saved between sessions, under your app-data folder (never in the log directory). Reset from the Settings menu.
+- **Field types / templates** — assign a semantic type to each field (Timestamp, Level, Module, Message, Thread, Device ID, Test Case, Run ID, Result). The Level field sorts by a configurable severity order (with custom levels), not alphabetically.
+- **Custom color rules** — author your own row/field visual rules (field value, message-contains, or regex → color, with priority) in Settings ▸ Color rules; they persist.
+- **Collapsible workspace panel** — collapse the file tree accordion-style to give logs more room.
+- **Persistence** — window size, included extensions, profile assignments, presets, and color rules are saved between sessions, under your app-data folder (never in the log directory). Reset from the Settings menu.
 
 ## Safety guarantees
 
