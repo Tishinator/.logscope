@@ -14,6 +14,28 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = _vm;
+        ApplyWindowSettings();
+        Closing += OnClosing;
+    }
+
+    private void ApplyWindowSettings()
+    {
+        var s = _vm.Settings;
+        if (s.WindowWidth > 200) Width = s.WindowWidth;
+        if (s.WindowHeight > 200) Height = s.WindowHeight;
+        WindowState = s.WindowMaximized ? WindowState.Maximized : WindowState.Normal;
+    }
+
+    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        var s = _vm.Settings;
+        s.WindowMaximized = WindowState == WindowState.Maximized;
+        if (WindowState == WindowState.Normal)
+        {
+            s.WindowWidth = Width;
+            s.WindowHeight = Height;
+        }
+        _vm.SaveSettings();
     }
 
     /// <summary>Open a file or directory path (from the command line / Explorer).</summary>

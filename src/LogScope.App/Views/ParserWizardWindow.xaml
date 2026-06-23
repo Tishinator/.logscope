@@ -1,0 +1,75 @@
+<Window x:Class="LogScope.App.Views.ParserWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Parser setup" Height="620" Width="760"
+        WindowStartupLocation="CenterOwner"
+        Background="#252526" ShowInTaskbar="False">
+    <DockPanel Margin="14">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <CheckBox x:Name="SaveToLibraryBox" Content="Save to my profiles" Foreground="#DDD"
+                      VerticalAlignment="Center" Margin="0,0,16,0"/>
+            <Button Content="Apply" IsDefault="True" Click="OnApply" Width="90" Margin="0,0,8,0"/>
+            <Button Content="Cancel" IsCancel="True" Width="90"/>
+        </StackPanel>
+
+        <Grid DockPanel.Dock="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: configuration -->
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Profile name" Foreground="#AAA" Margin="0,0,0,2"/>
+                <TextBox x:Name="NameBox" Text="My profile" Padding="3" Margin="0,0,0,12"/>
+
+                <TextBlock Text="Parsing mode" Foreground="#AAA" Margin="0,0,0,2"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <RadioButton x:Name="DelimitedRadio" Content="Delimited" Foreground="#DDD" IsChecked="True"
+                                 GroupName="Mode" Margin="0,0,12,0" Checked="OnModeChanged"/>
+                    <RadioButton x:Name="RegexRadio" Content="Regex" Foreground="#DDD"
+                                 GroupName="Mode" Margin="0,0,12,0" Checked="OnModeChanged"/>
+                    <RadioButton x:Name="RawRadio" Content="Raw" Foreground="#DDD"
+                                 GroupName="Mode" Checked="OnModeChanged"/>
+                </StackPanel>
+
+                <!-- Delimited config -->
+                <StackPanel x:Name="DelimitedPanel">
+                    <TextBlock Text="Delimiter" Foreground="#AAA" Margin="0,0,0,2"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <TextBox x:Name="DelimiterBox" Text="|" Width="80" Padding="3" Margin="0,0,8,0"/>
+                        <Button Content="|" Click="OnQuickDelimiter" Tag="|" Width="28" Margin="0,0,4,0"/>
+                        <Button Content="||" Click="OnQuickDelimiter" Tag="||" Width="32" Margin="0,0,4,0"/>
+                        <Button Content="," Click="OnQuickDelimiter" Tag="," Width="28" Margin="0,0,4,0"/>
+                        <Button Content="Tab" Click="OnQuickDelimiter" Tag="&#x9;" Width="40"/>
+                    </StackPanel>
+                    <TextBlock Text="Field names (comma-separated)" Foreground="#AAA" Margin="0,4,0,2"/>
+                    <TextBox x:Name="FieldsBox" Text="Timestamp, Level, Module, Message" Padding="3"/>
+                </StackPanel>
+
+                <!-- Regex config -->
+                <StackPanel x:Name="RegexPanel" Visibility="Collapsed">
+                    <TextBlock Text="Regex pattern (use named groups e.g. (?&lt;Level&gt;\w+))" Foreground="#AAA" TextWrapping="Wrap" Margin="0,0,0,2"/>
+                    <TextBox x:Name="PatternBox" Padding="3" AcceptsReturn="False"
+                             Text="^(?&lt;Timestamp&gt;\S+ \S+)\s+(?&lt;Level&gt;\w+)\s+(?&lt;Message&gt;.+)$"/>
+                </StackPanel>
+
+                <TextBlock Text="New-event rule (optional regex; lines not matching attach to the previous event)"
+                           Foreground="#AAA" TextWrapping="Wrap" Margin="0,14,0,2"/>
+                <TextBox x:Name="MultilineBox" Padding="3"/>
+
+                <Button Content="Preview" Click="OnPreview" Width="100" HorizontalAlignment="Left" Margin="0,14,0,0"/>
+                <TextBlock x:Name="StatsText" Foreground="#7CD" Margin="0,8,0,0"/>
+            </StackPanel>
+
+            <!-- Right: preview -->
+            <DockPanel Grid.Column="2">
+                <TextBlock DockPanel.Dock="Top" Text="Preview (first sample lines)" Foreground="#AAA" Margin="0,0,0,4"/>
+                <TextBox x:Name="PreviewBox" IsReadOnly="True" FontFamily="Consolas" FontSize="11"
+                         Background="#1E1E1E" Foreground="#DDD" VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"/>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>

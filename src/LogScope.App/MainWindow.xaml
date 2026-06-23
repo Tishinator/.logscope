@@ -12,9 +12,28 @@
         <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
 
         <HierarchicalDataTemplate DataType="{x:Type vm:WorkspaceNodeViewModel}" ItemsSource="{Binding Children}">
-            <StackPanel Orientation="Horizontal" MouseLeftButtonDown="OnNodeClicked">
+            <StackPanel Orientation="Horizontal" MouseLeftButtonDown="OnNodeClicked"
+                        ToolTip="{Binding Tooltip}" Background="Transparent"
+                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                 <TextBlock Text="📄" Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}" Margin="0,0,4,0"/>
                 <TextBlock Text="{Binding Name}" Foreground="#DDD"/>
+                <StackPanel.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Open"
+                                  Command="{Binding PlacementTarget.Tag.OpenInNewTabCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding}"/>
+                        <MenuItem Header="Open in new tab"
+                                  Command="{Binding PlacementTarget.Tag.OpenInNewTabCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding}"/>
+                        <Separator/>
+                        <MenuItem Header="Reveal in Explorer"
+                                  Command="{Binding PlacementTarget.Tag.RevealInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding}"/>
+                        <MenuItem Header="Open in default editor"
+                                  Command="{Binding PlacementTarget.Tag.OpenInEditorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding}"/>
+                    </ContextMenu>
+                </StackPanel.ContextMenu>
             </StackPanel>
         </HierarchicalDataTemplate>
     </Window.Resources>
@@ -28,18 +47,37 @@
                     <GradientStop Color="#22344C" Offset="1"/>
                 </LinearGradientBrush>
             </Border.Background>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Image Source="Assets/logo-mark.png" Height="32" Width="32" Margin="0,0,10,0"
-                       RenderOptions.BitmapScalingMode="HighQuality"/>
-                <TextBlock VerticalAlignment="Center">
-                    <Run Text="." Foreground="#2B8CE6" FontSize="21" FontWeight="Bold"/><Run Text="logscope" Foreground="#ECECEC" FontSize="21" FontWeight="SemiBold"/>
-                </TextBlock>
-                <Border Background="#14B8A6" CornerRadius="3" Padding="5,1" Margin="12,2,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="read-only" Foreground="#0C2A26" FontSize="10" FontWeight="SemiBold"/>
-                </Border>
-                <TextBlock Text="offline log analysis" Foreground="#7C99B8" FontSize="11"
-                           VerticalAlignment="Center" Margin="10,1,0,0"/>
-            </StackPanel>
+            <DockPanel>
+                <!-- Right-aligned menu -->
+                <Menu DockPanel.Dock="Right" Background="Transparent" VerticalAlignment="Center" Foreground="#DDD">
+                    <MenuItem Header="_Open" Foreground="#1B2B3F">
+                        <MenuItem Header="Open File…" Command="{Binding OpenFileCommand}"/>
+                        <MenuItem Header="Open Folder…" Command="{Binding OpenFolderCommand}"/>
+                    </MenuItem>
+                    <MenuItem Header="_Profiles" Foreground="#1B2B3F">
+                        <MenuItem Header="New parser profile… (for current file)" Command="{Binding NewProfileCommand}"/>
+                        <MenuItem Header="Edit parser for current tab…" Command="{Binding EditParserCommand}"/>
+                        <MenuItem Header="Import profile…" Command="{Binding ImportProfileCommand}"/>
+                    </MenuItem>
+                    <MenuItem Header="_Settings" Foreground="#1B2B3F">
+                        <MenuItem Header="File extensions…" Command="{Binding EditExtensionsCommand}"/>
+                        <MenuItem Header="Reset settings…" Command="{Binding ResetSettingsCommand}"/>
+                    </MenuItem>
+                </Menu>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Source="Assets/logo-mark.png" Height="32" Width="32" Margin="0,0,10,0"
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock VerticalAlignment="Center">
+                        <Run Text="." Foreground="#2B8CE6" FontSize="21" FontWeight="Bold"/><Run Text="logscope" Foreground="#ECECEC" FontSize="21" FontWeight="SemiBold"/>
+                    </TextBlock>
+                    <Border Background="#14B8A6" CornerRadius="3" Padding="5,1" Margin="12,2,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="read-only" Foreground="#0C2A26" FontSize="10" FontWeight="SemiBold"/>
+                    </Border>
+                    <TextBlock Text="offline log analysis" Foreground="#7C99B8" FontSize="11"
+                               VerticalAlignment="Center" Margin="10,1,0,0"/>
+                </StackPanel>
+            </DockPanel>
         </Border>
 
         <Grid>

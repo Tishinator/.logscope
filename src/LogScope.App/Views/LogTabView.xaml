@@ -37,7 +37,20 @@
                 <Button Content="▶" Command="{Binding FindNextCommand}" Margin="0,0,16,0" Padding="6,2" ToolTip="Next match"/>
 
                 <CheckBox Content="Stream" Foreground="#7CD" VerticalAlignment="Center"
-                          IsChecked="{Binding StreamingEnabled}" ToolTip="Follow appended content"/>
+                          IsChecked="{Binding StreamingEnabled}" ToolTip="Follow appended content" Margin="0,0,16,0"/>
+
+                <Button Content="Restore order" Command="{Binding RestoreOrderCommand}" Padding="6,2" Margin="0,0,6,0"
+                        ToolTip="Restore original file order (UR-09)"/>
+                <Button Content="Copy ▾" Padding="6,2" Margin="0,0,6,0" Click="OnCopyMenu"
+                        ToolTip="Copy selected (or all visible) rows">
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Copy rows (TSV)" Command="{Binding CopyRowsCommand}"/>
+                            <MenuItem Header="Copy raw text" Command="{Binding CopyRawCommand}"/>
+                            <MenuItem Header="Copy line references" Command="{Binding CopyLineRefsCommand}"/>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
             </WrapPanel>
         </Border>
 
@@ -52,6 +65,8 @@
                       Visibility="{Binding IsTableView, Converter={StaticResource BoolToVis}}"
                       AutoGenerateColumns="False" IsReadOnly="True"
                       ItemsSource="{Binding Rows}"
+                      SelectionMode="Extended"
+                      SelectionChanged="OnSelectionChanged"
                       SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                       EnableRowVirtualization="True" EnableColumnVirtualization="True"
                       VirtualizingPanel.IsVirtualizing="True"
@@ -60,6 +75,15 @@
                       Background="#1E1E1E" Foreground="#DDD" RowBackground="Transparent"
                       BorderThickness="0" FontFamily="Consolas"
                       RowDetailsVisibilityMode="VisibleWhenSelected">
+                <DataGrid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Copy rows (TSV)" Command="{Binding CopyRowsCommand}"/>
+                        <MenuItem Header="Copy raw text" Command="{Binding CopyRawCommand}"/>
+                        <MenuItem Header="Copy line references" Command="{Binding CopyLineRefsCommand}"/>
+                        <Separator/>
+                        <MenuItem Header="Restore original order" Command="{Binding RestoreOrderCommand}"/>
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
                 <DataGrid.ColumnHeaderStyle>
                     <Style TargetType="DataGridColumnHeader">
                         <Setter Property="Background" Value="#3C4A5E"/>

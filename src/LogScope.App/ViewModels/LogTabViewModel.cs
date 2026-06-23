@@ -26,6 +26,21 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     public IReadOnlyList<string> Columns { get; private set; }
     public ObservableCollection<LogRowViewModel> Rows { get; } = [];
 
+    public string ProfileName => string.IsNullOrWhiteSpace(_document.Profile.Name) ? "Auto" : _document.Profile.Name;
+    public string EncodingName => _document.EncodingName;
+    public string? EncodingWarning => _document.EncodingWarning;
+
+    public RelayCommand CopyRowsCommand { get; }
+    public RelayCommand CopyRawCommand { get; }
+    public RelayCommand CopyLineRefsCommand { get; }
+
+    /// <summary>Raised when the user asks to restore original file order; the view clears the grid sort.</summary>
+    public event Action? RestoreOrderRequested;
+    public RelayCommand RestoreOrderCommand { get; }
+
+    /// <summary>The rows currently selected in the grid (set by the view for copy operations).</summary>
+    public IReadOnlyList<LogRowViewModel> SelectedRows { get; set; } = [];
+
     public LogTabViewModel(LogDocument document)
     {
         _document = document;
@@ -35,8 +50,43 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
 
         FindNextCommand = new RelayCommand(FindNext);
         FindPrevCommand = new RelayCommand(FindPrev);
+        CopyRowsCommand = new RelayCommand(() => Copy(CopyMode.Tsv));
+        CopyRawCommand = new RelayCommand(() => Copy(CopyMode.Raw));
+        CopyLineRefsCommand = new RelayCommand(() => Copy(CopyMode.LineRefs));
+        RestoreOrderCommand = new RelayCommand(() => RestoreOrderRequested?.Invoke());
 
         RefreshView();
+    }
+
+    /// <summary>Replaces the underlying document (e.g. after applying a new parser profile).</summary>
+    public void ApplyDocument(LogDocument document)
+    {
+        _document = document;
+        Columns = document.Columns;
+        OnPropertyChanged(nameof(Columns));
+        OnPropertyChanged(nameof(RawText));
+        OnPropertyChanged(nameof(ProfileName));
+        OnPropertyChanged(nameof(EncodingName));
+        OnPropertyChanged(nameof(EncodingWarning));
+        RefreshView();
+    }
+
+    private enum CopyMode { Tsv, Raw, LineRefs }
+
+    private void Copy(CopyMode mode)
+    {
+        var selected = SelectedRows.Count > 0 ? SelectedRows : Rows.ToList();
+        if (selected.Count == 0) return;
+
+        var parsed = selected.Select(RowToParsed).ToList();
+        string text = mode switch
+        {
+            CopyMode.Raw => ClipboardFormatter.RawText(parsed),
+            CopyMode.LineRefs => ClipboardFormatter.LineReferences(parsed),
+            _ => ClipboardFormatter.RowsAsTsv(parsed, Columns),
+        };
+
+        try { Clipboard.SetText(text); } catch { /* clipboard can be transiently locked */ }
     }
 
     // ---- View mode ----
@@ -142,7 +192,20 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
             Rows.Add(new LogRowViewModel(row, continuation, styling.RowBackground, flaggedSet.Contains(row.LineNumber)));
         }
 
-        Status = $"{Rows.Count} of {_document.Rows.Count} rows  •  parsed {_document.ParsedCount}, fallback {_document.FallbackCount}  •  {FlaggedCount} flagged";
+        var parts = new List<string>
+        {
+            $"{Rows.Count} of {_document.Rows.Count} rows",
+            $"parsed {_document.ParsedCount}, fallback {_document.FallbackCount}",
+            $"{FlaggedCount} flagged",
+            $"profile: {ProfileName}",
+            _document.EncodingName,
+        };
+        if (_document.Truncated)
+            parts.Add($"⚠ showing first {_document.Rows.Count:N0} lines (file is larger)");
+        if (!string.IsNullOrEmpty(_document.EncodingWarning))
+            parts.Add("⚠ " + _document.EncodingWarning);
+
+        Status = string.Join("  •  ", parts);
     }
 
     private void FindNext()

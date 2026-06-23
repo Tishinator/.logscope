@@ -15,11 +15,36 @@ public sealed class WorkspaceNodeViewModel
     public bool IsExpanded { get; set; }
     public ObservableCollection<WorkspaceNodeViewModel> Children { get; } = [];
 
+    /// <summary>Hover details (UR-02): size and modified date kept out of the always-on tree.</summary>
+    public string? Tooltip { get; }
+
     private WorkspaceNodeViewModel(string name, string? filePath, bool expanded)
     {
         Name = name;
         FilePath = filePath;
         IsExpanded = expanded;
+
+        if (filePath != null)
+        {
+            try
+            {
+                var info = new FileInfo(filePath);
+                Tooltip = $"{filePath}\nSize: {FormatSize(info.Length)}\nModified: {info.LastWriteTime:yyyy-MM-dd HH:mm:ss}";
+            }
+            catch
+            {
+                Tooltip = filePath;
+            }
+        }
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        double size = bytes;
+        int unit = 0;
+        while (size >= 1024 && unit < units.Length - 1) { size /= 1024; unit++; }
+        return $"{size:0.#} {units[unit]}";
     }
 
     public static WorkspaceNodeViewModel FromFolder(FolderNode node, bool expandRoot = false)
