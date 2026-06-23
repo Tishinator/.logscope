@@ -27,6 +27,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     public ObservableCollection<LogRowViewModel> Rows { get; } = [];
 
     public string ProfileName => string.IsNullOrWhiteSpace(_document.Profile.Name) ? "Auto" : _document.Profile.Name;
+    public LogProfile CurrentProfile => _document.Profile;
     public string EncodingName => _document.EncodingName;
     public string? EncodingWarning => _document.EncodingWarning;
 

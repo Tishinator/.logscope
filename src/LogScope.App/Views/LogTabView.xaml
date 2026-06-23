@@ -51,6 +51,33 @@
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
+
+                <Menu Background="Transparent" VerticalAlignment="Center" Margin="0,0,6,0">
+                    <MenuItem Header="Presets ▾" Foreground="#CCC">
+                        <MenuItem Header="Save current filter…"
+                                  Command="{Binding DataContext.SaveFilterPresetCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        <Separator/>
+                        <MenuItem Header="Apply"
+                                  ItemsSource="{Binding DataContext.FilterPresets, RelativeSource={RelativeSource AncestorType=Window}}">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding Name}"/>
+                                    <Setter Property="Command" Value="{Binding DataContext.ApplyFilterPresetCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                    <Setter Property="CommandParameter" Value="{Binding}"/>
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+                    </MenuItem>
+                </Menu>
+
+                <Menu Background="Transparent" VerticalAlignment="Center">
+                    <MenuItem Header="Encoding ▾" Foreground="#CCC">
+                        <MenuItem Header="UTF-8" Command="{Binding DataContext.ReloadEncodingCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="UTF-8"/>
+                        <MenuItem Header="UTF-16 LE" Command="{Binding DataContext.ReloadEncodingCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="UTF-16 LE"/>
+                        <MenuItem Header="UTF-16 BE" Command="{Binding DataContext.ReloadEncodingCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="UTF-16 BE"/>
+                        <MenuItem Header="Windows-1252 (ANSI)" Command="{Binding DataContext.ReloadEncodingCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="Windows-1252 (ANSI)"/>
+                    </MenuItem>
+                </Menu>
             </WrapPanel>
         </Border>
 

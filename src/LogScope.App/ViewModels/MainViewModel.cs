@@ -36,6 +36,9 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand AssignProfileToFileCommand { get; }
     public RelayCommand AssignProfileToFolderCommand { get; }
     public RelayCommand OpenInNewTabCommand { get; }
+    public RelayCommand SaveFilterPresetCommand { get; }
+    public RelayCommand ApplyFilterPresetCommand { get; }
+    public RelayCommand ReloadEncodingCommand { get; }
 
     public MainViewModel()
     {
@@ -59,6 +62,61 @@ public sealed class MainViewModel : ViewModelBase
         ResetSettingsCommand = new RelayCommand(ResetSettings);
         AssignProfileToFileCommand = new RelayCommand(p => AssignProfile(p, toFolder: false));
         AssignProfileToFolderCommand = new RelayCommand(p => AssignProfile(p, toFolder: true));
+        SaveFilterPresetCommand = new RelayCommand(SaveFilterPreset);
+        ApplyFilterPresetCommand = new RelayCommand(p => { if (p is FilterPreset fp) ApplyFilterPreset(fp); });
+        ReloadEncodingCommand = new RelayCommand(p => ReloadWithEncoding(p as string));
+    }
+
+    // ----- Filter presets (UR-08) -----
+
+    private void SaveFilterPreset()
+    {
+        if (SelectedTab == null) return;
+        var input = new InputDialog("Save filter preset", "Preset name:", "My filter")
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (input.ShowDialog() != true || string.IsNullOrWhiteSpace(input.ResponseText)) return;
+
+        var preset = new FilterPreset(input.ResponseText.Trim(), SelectedTab.FilterText,
+            SelectedTab.FilterIsRegex, SelectedTab.OnlyFlagged);
+        Settings.FilterPresets.RemoveAll(p => p.Name == preset.Name);
+        Settings.FilterPresets.Add(preset);
+        SaveSettings();
+        OnPropertyChanged(nameof(FilterPresets));
+    }
+
+    private void ApplyFilterPreset(FilterPreset preset)
+    {
+        if (SelectedTab == null) return;
+        SelectedTab.FilterIsRegex = preset.IsRegex;
+        SelectedTab.OnlyFlagged = preset.OnlyFlagged;
+        SelectedTab.FilterText = preset.FilterText;
+    }
+
+    public IEnumerable<FilterPreset> FilterPresets => Settings.FilterPresets;
+
+    // ----- Manual encoding override (SR-04) -----
+
+    private void ReloadWithEncoding(string? encodingName)
+    {
+        if (SelectedTab == null || encodingName == null) return;
+        var encoding = encodingName switch
+        {
+            "UTF-8" => System.Text.Encoding.UTF8,
+            "UTF-16 LE" => System.Text.Encoding.Unicode,
+            "UTF-16 BE" => System.Text.Encoding.BigEndianUnicode,
+            "Windows-1252 (ANSI)" => System.Text.Encoding.GetEncoding(1252),
+            _ => null,
+        };
+        try
+        {
+            SelectedTab.ApplyDocument(LogDocument.Load(SelectedTab.FilePath, SelectedTab.CurrentProfile, encoding, LogDocument.DefaultMaxLines));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not reload with {encodingName}:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private string? _workspacePath;

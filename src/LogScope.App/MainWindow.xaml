@@ -136,6 +136,23 @@
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding Title}" VerticalAlignment="Center"/>
+                            <!-- Flagged-event indicator on the tab (UR-11) -->
+                            <Border Background="#C0392B" CornerRadius="7" Padding="5,0" Margin="6,0,0,0"
+                                    VerticalAlignment="Center" MinWidth="16" HorizontalAlignment="Center"
+                                    ToolTip="Flagged events in this log">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding FlaggedCount}" Value="0">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding FlaggedCount}" Foreground="White" FontSize="10"
+                                           HorizontalAlignment="Center"/>
+                            </Border>
                             <Button Content="✕" Click="OnCloseTab" Tag="{Binding}" Margin="8,0,0,0"
                                     Padding="3,0" BorderThickness="0" Background="Transparent" Foreground="#999"/>
                         </StackPanel>
