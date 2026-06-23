@@ -256,7 +256,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <ContentControl Visibility="{Binding SingleMode, Converter={StaticResource BoolToVis}}"
+                    <ContentControl Visibility="{Binding ShowSingleView, Converter={StaticResource BoolToVis}}"
                                     Content="{Binding SelectedTab}">
                         <ContentControl.ContentTemplate>
                             <DataTemplate>
@@ -264,6 +264,11 @@
                             </DataTemplate>
                         </ContentControl.ContentTemplate>
                     </ContentControl>
+
+                    <!-- Shown when a workspace is open but no log tab yet -->
+                    <TextBlock Visibility="{Binding ShowNoTabHint, Converter={StaticResource BoolToVis}}"
+                               Text="Double-click a log in the workspace to open it."
+                               Foreground="#777" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Grid>
 
             </DockPanel>

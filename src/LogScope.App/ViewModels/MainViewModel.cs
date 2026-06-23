@@ -139,7 +139,12 @@ public sealed class MainViewModel : ViewModelBase
         set
         {
             if (value && !CanCompare) return; // split view requires 2+ logs
-            if (SetField(ref _compareMode, value)) OnPropertyChanged(nameof(SingleMode));
+            if (SetField(ref _compareMode, value))
+            {
+                OnPropertyChanged(nameof(SingleMode));
+                OnPropertyChanged(nameof(ShowSingleView));
+                OnPropertyChanged(nameof(ShowNoTabHint));
+            }
         }
     }
     public bool SingleMode => !_compareMode;
@@ -320,8 +325,16 @@ public sealed class MainViewModel : ViewModelBase
             if (_selectedTab == value) return;
             _previousSelectedTab = _selectedTab;
             SetField(ref _selectedTab, value);
+            OnPropertyChanged(nameof(ShowSingleView));
+            OnPropertyChanged(nameof(ShowNoTabHint));
         }
     }
+
+    /// <summary>Single-tab content is shown only when not split and a tab is actually open.</summary>
+    public bool ShowSingleView => SingleMode && SelectedTab != null;
+
+    /// <summary>Hint shown when a workspace is open but no log tab is yet.</summary>
+    public bool ShowNoTabHint => SingleMode && SelectedTab == null;
 
     public string ExtensionsDisplay => string.Join(", ", Settings.IncludedExtensions);
 
