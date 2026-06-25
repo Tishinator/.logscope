@@ -24,15 +24,33 @@
                 <CheckBox Content="regex" Foreground="#CCC" VerticalAlignment="Center"
                           IsChecked="{Binding FilterIsRegex}" Margin="0,0,8,0"/>
                 <CheckBox Content="flagged only" Foreground="#CCC" VerticalAlignment="Center"
-                          IsChecked="{Binding OnlyFlagged}" Margin="0,0,16,0"/>
+                          IsChecked="{Binding OnlyFlagged}" Margin="0,0,8,0"/>
+
+                <!-- Time-range filter, shown only when a Timestamp field is mapped (UR-08) -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
+                            Visibility="{Binding HasTimestampField, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Time:" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <TextBox Width="120" VerticalAlignment="Center" Margin="0,0,3,0"
+                             Text="{Binding FilterTimeFrom, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                             ToolTip="From (e.g. 2024-01-15 10:05:00)"/>
+                    <TextBlock Text="–" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                    <TextBox Width="120" VerticalAlignment="Center"
+                             Text="{Binding FilterTimeTo, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                             ToolTip="To (e.g. 2024-01-15 10:10:00)"/>
+                </StackPanel>
 
                 <TextBlock Text="Search:" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                <TextBox Width="140" VerticalAlignment="Center" Margin="0,0,4,0"
+                <TextBox Width="130" VerticalAlignment="Center" Margin="0,0,4,0"
                          Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                <ComboBox Width="100" VerticalAlignment="Center" Margin="0,0,4,0"
+                          ItemsSource="{Binding SearchFields}" SelectedItem="{Binding SearchField}"
+                          ToolTip="Limit search to a column"/>
                 <CheckBox Content="Aa" Foreground="#CCC" VerticalAlignment="Center" ToolTip="Case sensitive"
                           IsChecked="{Binding SearchCaseSensitive}" Margin="0,0,4,0"/>
                 <CheckBox Content=".*" Foreground="#CCC" VerticalAlignment="Center" ToolTip="Regex"
                           IsChecked="{Binding SearchIsRegex}" Margin="0,0,4,0"/>
+                <CheckBox Content="W" Foreground="#CCC" VerticalAlignment="Center" ToolTip="Whole word"
+                          IsChecked="{Binding SearchWholeWord}" Margin="0,0,4,0"/>
                 <Button Content="◀" Command="{Binding FindPrevCommand}" Margin="0,0,2,0" Padding="6,2" ToolTip="Previous match"/>
                 <Button Content="▶" Command="{Binding FindNextCommand}" Margin="0,0,16,0" Padding="6,2" ToolTip="Next match"/>
 

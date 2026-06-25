@@ -50,6 +50,13 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         AddToggle("Line");
         foreach (var col in Columns)
             AddToggle(col);
+
+        SearchFields.Clear();
+        SearchFields.Add(AllFields);
+        foreach (var col in Columns)
+            SearchFields.Add(col);
+        if (!SearchFields.Contains(SearchField))
+            SearchField = AllFields;
     }
 
     private void AddToggle(string name)
@@ -220,6 +227,21 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         set { if (SetField(ref _onlyFlagged, value)) RefreshView(); }
     }
 
+    // ---- Time-range filter (UR-08, shown when a Timestamp field exists) ----
+    private string _filterTimeFrom = string.Empty;
+    public string FilterTimeFrom
+    {
+        get => _filterTimeFrom;
+        set { if (SetField(ref _filterTimeFrom, value)) RefreshView(); }
+    }
+
+    private string _filterTimeTo = string.Empty;
+    public string FilterTimeTo
+    {
+        get => _filterTimeTo;
+        set { if (SetField(ref _filterTimeTo, value)) RefreshView(); }
+    }
+
     // ---- Search ----
     private string _searchText = string.Empty;
     public string SearchText { get => _searchText; set => SetField(ref _searchText, value); }
@@ -229,6 +251,16 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
 
     private bool _searchIsRegex;
     public bool SearchIsRegex { get => _searchIsRegex; set => SetField(ref _searchIsRegex, value); }
+
+    private bool _searchWholeWord;
+    public bool SearchWholeWord { get => _searchWholeWord; set => SetField(ref _searchWholeWord, value); }
+
+    /// <summary>Search scope: "All fields" or a specific column (UR-08).</summary>
+    public ObservableCollection<string> SearchFields { get; } = [];
+    private const string AllFields = "All fields";
+
+    private string _searchField = AllFields;
+    public string SearchField { get => _searchField; set => SetField(ref _searchField, value); }
 
     private LogRowViewModel? _selectedRow;
     public LogRowViewModel? SelectedRow { get => _selectedRow; set => SetField(ref _selectedRow, value); }
@@ -329,6 +361,16 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         if (OnlyFlagged)
             rows = rows.Where(r => flaggedSet.Contains(r.LineNumber));
 
+        // Time-range filter (UR-08) when a Timestamp field is mapped.
+        var field = _document.Profile.TimestampField;
+        if (field != null)
+        {
+            var from = Core.Sync.TimestampParser.TryParse(FilterTimeFrom);
+            var to = Core.Sync.TimestampParser.TryParse(FilterTimeTo);
+            if (from != null || to != null)
+                rows = TimeRangeFilter.Apply(rows, field, from, to);
+        }
+
         return rows;
     }
 
@@ -366,7 +408,8 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
 
     private void FindFrom(int start, bool forward)
     {
-        var query = new SearchQuery(SearchText, SearchCaseSensitive, SearchIsRegex);
+        var field = SearchField == AllFields ? null : SearchField;
+        var query = new SearchQuery(SearchText, SearchCaseSensitive, SearchIsRegex, SearchWholeWord, field);
         int n = Rows.Count;
         for (int i = 0; i < n; i++)
         {
