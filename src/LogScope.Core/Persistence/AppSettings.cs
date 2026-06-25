@@ -1,7 +1,13 @@
 namespace LogScope.Core.Persistence;
 
 /// <summary>A saved filter preset (UR-08).</summary>
-public sealed record FilterPreset(string Name, string FilterText, bool IsRegex, bool OnlyFlagged);
+public sealed record FilterPreset(
+    string Name,
+    string FilterText,
+    bool IsRegex,
+    bool OnlyFlagged,
+    string? FilterTimeFrom = null,
+    string? FilterTimeTo = null);
 
 /// <summary>Per-column display state, keyed by column name (SR-10).</summary>
 public sealed class ColumnState
@@ -20,6 +26,8 @@ public sealed class AppSettings
     public double WindowWidth { get; set; } = 1150;
     public double WindowHeight { get; set; } = 700;
     public bool WindowMaximized { get; set; }
+    public double? WindowLeft { get; set; }
+    public double? WindowTop { get; set; }
 
     public List<string> IncludedExtensions { get; set; } = [".log"];
 

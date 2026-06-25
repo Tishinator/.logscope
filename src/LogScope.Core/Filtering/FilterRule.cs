@@ -23,8 +23,11 @@ public sealed class FilterRule
     public static FilterRule ExcludeWhere(string fieldName, string value) =>
         new(RuleKind.ExcludeFieldValue, fieldName, value, caseSensitive: true);
 
-    public static FilterRule IncludeContainingText(string text, bool caseSensitive) =>
-        new(RuleKind.IncludeText, fieldName: null, text, caseSensitive);
+    public static FilterRule IncludeContainingText(string text, bool caseSensitive, string? fieldName = null) =>
+        new(RuleKind.IncludeText, fieldName, text, caseSensitive);
+
+    public static FilterRule ExcludeContainingText(string text, bool caseSensitive, string? fieldName = null) =>
+        new(RuleKind.ExcludeText, fieldName, text, caseSensitive);
 
     public static FilterRule IncludeMatchingRegex(string pattern, string? fieldName = null) =>
         new(RuleKind.IncludeRegex, fieldName, pattern, caseSensitive: true);

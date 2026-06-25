@@ -38,8 +38,18 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     /// <summary>Raised when a column's visibility changes (name, isVisible) for the view + persistence.</summary>
     public event Action<string, bool>? ColumnVisibilityChanged;
 
+    /// <summary>Raised by the view when a column is resized or reordered (name, width, displayIndex).</summary>
+    public event Action<string, double, int>? ColumnStateChanged;
+
+    /// <summary>Called from the view when a column's width or display-index changes.</summary>
+    public void ReportColumnState(string name, double width, int displayIndex) =>
+        ColumnStateChanged?.Invoke(name, width, displayIndex);
+
     /// <summary>Column names hidden when this tab was created (from persisted layout).</summary>
     public ISet<string> InitiallyHidden { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Persisted width + displayIndex for each column; populated by MainViewModel before the view renders.</summary>
+    public Dictionary<string, (double Width, int DisplayIndex)> SavedColumnGeometry { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public bool IsColumnVisible(string name) =>
         ColumnToggles.FirstOrDefault(c => c.Name == name)?.IsVisible ?? true;
@@ -206,6 +216,14 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     public string RawText => string.Join(Environment.NewLine, _liveRaw.Select(l => l.Text));
 
     // ---- Filtering ----
+    private string _filterRegexError = string.Empty;
+    public string FilterRegexError { get => _filterRegexError; private set => SetField(ref _filterRegexError, value); }
+    public bool HasFilterRegexError => !string.IsNullOrEmpty(_filterRegexError);
+
+    private string _searchRegexError = string.Empty;
+    public string SearchRegexError { get => _searchRegexError; private set => SetField(ref _searchRegexError, value); }
+    public bool HasSearchRegexError => !string.IsNullOrEmpty(_searchRegexError);
+
     private string _filterText = string.Empty;
     public string FilterText
     {
@@ -225,6 +243,29 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     {
         get => _onlyFlagged;
         set { if (SetField(ref _onlyFlagged, value)) RefreshView(); }
+    }
+
+    // ---- Exclude filter (UR-08) ----
+    private string _excludeText = string.Empty;
+    public string ExcludeText
+    {
+        get => _excludeText;
+        set { if (SetField(ref _excludeText, value)) RefreshView(); }
+    }
+
+    private bool _excludeIsRegex;
+    public bool ExcludeIsRegex
+    {
+        get => _excludeIsRegex;
+        set { if (SetField(ref _excludeIsRegex, value)) RefreshView(); }
+    }
+
+    // ---- Field-scoped filter (UR-08): limit include to a specific column ----
+    private string _filterField = string.Empty;
+    public string FilterField
+    {
+        get => _filterField;
+        set { if (SetField(ref _filterField, value)) RefreshView(); }
     }
 
     // ---- Time-range filter (UR-08, shown when a Timestamp field exists) ----
@@ -350,13 +391,40 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     /// <summary>Applies the current filter (text/regex + flagged-only) to a row set.</summary>
     private IEnumerable<ParsedRow> FilterRows(IEnumerable<ParsedRow> rows, ISet<int> flaggedSet)
     {
+        FilterRegexError = string.Empty;
+
+        var rules = new List<FilterRule>();
+        var fieldScope = string.IsNullOrEmpty(FilterField) || FilterField == "All fields" ? null : FilterField;
+
         if (!string.IsNullOrEmpty(FilterText))
         {
-            var rule = FilterIsRegex
-                ? FilterRule.IncludeMatchingRegex(FilterText)
-                : FilterRule.IncludeContainingText(FilterText, caseSensitive: false);
-            rows = new FilterEngine([rule]).Apply(rows);
+            rules.Add(FilterIsRegex
+                ? FilterRule.IncludeMatchingRegex(FilterText, fieldScope)
+                : FilterRule.IncludeContainingText(FilterText, caseSensitive: false, fieldScope));
         }
+
+        if (!string.IsNullOrEmpty(ExcludeText))
+        {
+            rules.Add(ExcludeIsRegex
+                ? FilterRule.ExcludeMatchingRegex(ExcludeText)
+                : FilterRule.ExcludeContainingText(ExcludeText, caseSensitive: false));
+        }
+
+        if (rules.Count > 0)
+        {
+            try
+            {
+                rows = new FilterEngine(rules).Apply(rows);
+            }
+            catch (System.Text.RegularExpressions.RegexParseException ex)
+            {
+                FilterRegexError = ex.Message;
+                OnPropertyChanged(nameof(HasFilterRegexError));
+                return rows.Where(r => !OnlyFlagged || flaggedSet.Contains(r.LineNumber));
+            }
+        }
+
+        OnPropertyChanged(nameof(HasFilterRegexError));
 
         if (OnlyFlagged)
             rows = rows.Where(r => flaggedSet.Contains(r.LineNumber));
@@ -408,8 +476,23 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
 
     private void FindFrom(int start, bool forward)
     {
+        SearchRegexError = string.Empty;
+        OnPropertyChanged(nameof(HasSearchRegexError));
+
+        if (SearchIsRegex)
+        {
+            try { _ = new System.Text.RegularExpressions.Regex(SearchText); }
+            catch (System.Text.RegularExpressions.RegexParseException ex)
+            {
+                SearchRegexError = ex.Message;
+                OnPropertyChanged(nameof(HasSearchRegexError));
+                return;
+            }
+        }
+
         var field = SearchField == AllFields ? null : SearchField;
         var query = new SearchQuery(SearchText, SearchCaseSensitive, SearchIsRegex, SearchWholeWord, field);
+
         int n = Rows.Count;
         for (int i = 0; i < n; i++)
         {

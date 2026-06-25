@@ -17,6 +17,19 @@
                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                 <TextBlock Text="📄" Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}" Margin="0,0,4,0"/>
                 <TextBlock Text="{Binding Name}" Foreground="#DDD"/>
+                <Border CornerRadius="6" Background="#E05050" Margin="6,0,0,0" Padding="4,1" VerticalAlignment="Center">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding FlaggedCount}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding FlaggedCount}" Foreground="White" FontSize="10"/>
+                </Border>
                 <StackPanel.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="Open"
@@ -87,6 +100,40 @@
                             </MenuItem.ItemContainerStyle>
                         </MenuItem>
                         <Separator/>
+                        <MenuItem Header="Export profile…" Tag="{Binding}"
+                                  ItemsSource="{Binding SavedProfiles}" Foreground="#1B2B3F">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding Name}"/>
+                                    <Setter Property="Foreground" Value="#1B2B3F"/>
+                                    <Setter Property="Command" Value="{Binding Tag.ExportProfileCommand, RelativeSource={RelativeSource AncestorType=MenuItem}}"/>
+                                    <Setter Property="CommandParameter" Value="{Binding}"/>
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+                        <MenuItem Header="Delete profile…" Tag="{Binding}"
+                                  ItemsSource="{Binding SavedProfiles}" Foreground="#1B2B3F">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding Name}"/>
+                                    <Setter Property="Foreground" Value="#1B2B3F"/>
+                                    <Setter Property="Command" Value="{Binding Tag.DeleteProfileCommand, RelativeSource={RelativeSource AncestorType=MenuItem}}"/>
+                                    <Setter Property="CommandParameter" Value="{Binding}"/>
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+                        <MenuItem Header="Rename profile…" Tag="{Binding}"
+                                  ItemsSource="{Binding SavedProfiles}" Foreground="#1B2B3F">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding Name}"/>
+                                    <Setter Property="Foreground" Value="#1B2B3F"/>
+                                    <Setter Property="Command" Value="{Binding Tag.RenameProfileCommand, RelativeSource={RelativeSource AncestorType=MenuItem}}"/>
+                                    <Setter Property="CommandParameter" Value="{Binding}"/>
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+                        <Separator/>
                         <MenuItem Header="Import profile…" Command="{Binding ImportProfileCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
                     <MenuItem Header="_View" Foreground="#E6ECF2">
@@ -99,6 +146,18 @@
                         <MenuItem Header="Color rules…" Command="{Binding EditColorRulesCommand}" Style="{StaticResource DropItem}"/>
                         <MenuItem Header="Flag rules…" Command="{Binding EditFlagRulesCommand}" Style="{StaticResource DropItem}"/>
                         <MenuItem Header="File extensions…" Command="{Binding EditExtensionsCommand}" Style="{StaticResource DropItem}"/>
+                        <Separator/>
+                        <MenuItem Header="Stream new tabs by default" IsCheckable="True"
+                                  IsChecked="{Binding StreamFollowByDefault}"
+                                  Foreground="#1B2B3F"
+                                  ToolTip="Automatically enable streaming when a log tab is opened"/>
+                        <MenuItem Header="Show flagged-row badges in workspace tree" IsCheckable="True"
+                                  IsChecked="{Binding ShowIndicatorsInTree}"
+                                  Foreground="#1B2B3F"/>
+                        <MenuItem Header="Show flagged-row count in tab header" IsCheckable="True"
+                                  IsChecked="{Binding ShowIndicatorsInSummary}"
+                                  Foreground="#1B2B3F"/>
+                        <Separator/>
                         <MenuItem Header="Reset settings…" Command="{Binding ResetSettingsCommand}" Style="{StaticResource DropItem}"/>
                     </MenuItem>
                 </Menu>
@@ -223,6 +282,9 @@
                                             <Setter Property="Visibility" Value="Visible"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding FlaggedCount}" Value="0">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DataContext.ShowIndicatorsInSummary, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                 </DataTrigger>
                                             </Style.Triggers>

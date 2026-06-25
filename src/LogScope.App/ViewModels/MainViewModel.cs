@@ -13,12 +13,15 @@ using LogScope.Core.Workspace;
 
 namespace LogScope.App.ViewModels;
 
-public sealed class MainViewModel : ViewModelBase
+public sealed class MainViewModel : ViewModelBase, IDisposable
 {
     private readonly WorkspaceScanner _scanner = new();
     private readonly SettingsStore _settingsStore;
     private readonly ProfileRepository _profileRepo;
     private readonly ProfileResolver _resolver = new();
+
+    private FileSystemWatcher? _workspaceWatcher;
+    private System.Threading.Timer? _refreshDebounce;
 
     public AppSettings Settings { get; }
 
@@ -48,6 +51,9 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand ExitCompareCommand { get; }
     public RelayCommand SplitWithActiveCommand { get; }
     public RelayCommand RemoveFromSplitCommand { get; }
+    public RelayCommand ExportProfileCommand { get; }
+    public RelayCommand DeleteProfileCommand { get; }
+    public RelayCommand RenameProfileCommand { get; }
 
     public MainViewModel()
     {
@@ -80,6 +86,9 @@ public sealed class MainViewModel : ViewModelBase
         ExitCompareCommand = new RelayCommand(ExitSplit);
         SplitWithActiveCommand = new RelayCommand(p => SplitWithActive(p as LogTabViewModel));
         RemoveFromSplitCommand = new RelayCommand(p => RemoveFromSplit(p as LogTabViewModel));
+        ExportProfileCommand = new RelayCommand(p => { if (p is LogProfile pr) ExportProfile(pr); });
+        DeleteProfileCommand = new RelayCommand(p => { if (p is LogProfile pr) DeleteProfile(pr); });
+        RenameProfileCommand = new RelayCommand(p => { if (p is LogProfile pr) RenameProfile(pr); });
 
         OpenTabs.CollectionChanged += (_, _) => OnPropertyChanged(nameof(CanCompare));
     }
@@ -270,8 +279,13 @@ public sealed class MainViewModel : ViewModelBase
         };
         if (input.ShowDialog() != true || string.IsNullOrWhiteSpace(input.ResponseText)) return;
 
-        var preset = new FilterPreset(input.ResponseText.Trim(), SelectedTab.FilterText,
-            SelectedTab.FilterIsRegex, SelectedTab.OnlyFlagged);
+        var preset = new FilterPreset(
+            input.ResponseText.Trim(),
+            SelectedTab.FilterText,
+            SelectedTab.FilterIsRegex,
+            SelectedTab.OnlyFlagged,
+            string.IsNullOrEmpty(SelectedTab.FilterTimeFrom) ? null : SelectedTab.FilterTimeFrom,
+            string.IsNullOrEmpty(SelectedTab.FilterTimeTo) ? null : SelectedTab.FilterTimeTo);
         Settings.FilterPresets.RemoveAll(p => p.Name == preset.Name);
         Settings.FilterPresets.Add(preset);
         SaveSettings();
@@ -284,6 +298,8 @@ public sealed class MainViewModel : ViewModelBase
         SelectedTab.FilterIsRegex = preset.IsRegex;
         SelectedTab.OnlyFlagged = preset.OnlyFlagged;
         SelectedTab.FilterText = preset.FilterText;
+        SelectedTab.FilterTimeFrom = preset.FilterTimeFrom ?? string.Empty;
+        SelectedTab.FilterTimeTo = preset.FilterTimeTo ?? string.Empty;
     }
 
     public IEnumerable<FilterPreset> FilterPresets => Settings.FilterPresets;
@@ -338,6 +354,25 @@ public sealed class MainViewModel : ViewModelBase
 
     public string ExtensionsDisplay => string.Join(", ", Settings.IncludedExtensions);
 
+    /// <summary>Wraps Settings.StreamFollowByDefault so toggling auto-saves (SR-10).</summary>
+    public bool StreamFollowByDefault
+    {
+        get => Settings.StreamFollowByDefault;
+        set { Settings.StreamFollowByDefault = value; OnPropertyChanged(); SaveSettings(); }
+    }
+
+    public bool ShowIndicatorsInTree
+    {
+        get => Settings.ShowIndicatorsInTree;
+        set { Settings.ShowIndicatorsInTree = value; OnPropertyChanged(); SaveSettings(); }
+    }
+
+    public bool ShowIndicatorsInSummary
+    {
+        get => Settings.ShowIndicatorsInSummary;
+        set { Settings.ShowIndicatorsInSummary = value; OnPropertyChanged(); SaveSettings(); }
+    }
+
     // ----- Opening -----
 
     private void OpenFile()
@@ -376,11 +411,46 @@ public sealed class MainViewModel : ViewModelBase
             WorkspaceRoots.Add(WorkspaceNodeViewModel.FromFolder(result.RootNode, expandRoot: true));
             WorkspacePath = folder;
             OnPropertyChanged(nameof(HasWorkspace));
+            AttachWorkspaceWatcher(folder);
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Could not open workspace:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    private void AttachWorkspaceWatcher(string folder)
+    {
+        _workspaceWatcher?.Dispose();
+        _refreshDebounce?.Dispose();
+        _refreshDebounce = null;
+
+        var watcher = new FileSystemWatcher(folder)
+        {
+            IncludeSubdirectories = true,
+            NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName,
+            EnableRaisingEvents = true
+        };
+
+        void Schedule(object? sender, FileSystemEventArgs e)
+        {
+            _refreshDebounce?.Dispose();
+            _refreshDebounce = new System.Threading.Timer(_ =>
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() => LoadWorkspace(folder));
+            }, null, 600, System.Threading.Timeout.Infinite);
+        }
+
+        watcher.Created += Schedule;
+        watcher.Deleted += Schedule;
+        watcher.Renamed += (s, e) => Schedule(s, e);
+        _workspaceWatcher = watcher;
+    }
+
+    public void Dispose()
+    {
+        _workspaceWatcher?.Dispose();
+        _refreshDebounce?.Dispose();
     }
 
     public void OpenLog(string filePath, bool forceNewTab = false)
@@ -401,9 +471,12 @@ public sealed class MainViewModel : ViewModelBase
             var profile = ResolveProfile(filePath);
             var doc = LogDocument.Load(filePath, profile, encoding: null, LogDocument.DefaultMaxLines);
             var tab = new LogTabViewModel(doc, ColorRules(), FlagRules());
+            if (Settings.StreamFollowByDefault)
+                tab.StreamingEnabled = true;
             ApplyColumnLayout(tab);
             tab.PropertyChanged += OnTabPropertyChanged;
             tab.ColumnVisibilityChanged += (name, visible) => PersistColumnVisibility(tab, name, visible);
+            tab.ColumnStateChanged += (name, width, displayIndex) => PersistColumnWidthOrder(tab, name, width, displayIndex);
             OpenTabs.Add(tab);
             SelectedTab = tab;
         }
@@ -452,8 +525,29 @@ public sealed class MainViewModel : ViewModelBase
 
     private void OnTabPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(LogTabViewModel.SelectedRow) && sender is LogTabViewModel tab)
+        if (sender is not LogTabViewModel tab) return;
+        if (e.PropertyName == nameof(LogTabViewModel.SelectedRow))
             OnTabSelectionChanged(tab);
+        if (e.PropertyName == nameof(LogTabViewModel.FlaggedCount) && Settings.ShowIndicatorsInTree)
+            PushFlaggedCountToTree(tab.FilePath, tab.FlaggedCount);
+    }
+
+    private void PushFlaggedCountToTree(string filePath, int count)
+    {
+        static WorkspaceNodeViewModel? Find(IEnumerable<WorkspaceNodeViewModel> nodes, string path)
+        {
+            foreach (var n in nodes)
+            {
+                if (n.IsFile && string.Equals(n.FilePath, path, StringComparison.OrdinalIgnoreCase))
+                    return n;
+                var found = Find(n.Children, path);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        var node = Find(WorkspaceRoots, filePath);
+        if (node != null) node.FlaggedCount = count;
     }
 
     // ----- Profiles -----
@@ -548,6 +642,49 @@ public sealed class MainViewModel : ViewModelBase
         catch { /* ignore */ }
     }
 
+    private void DeleteProfile(LogProfile profile)
+    {
+        var confirm = MessageBox.Show(
+            $"Delete profile '{profile.Name}'?\nAny directory or file assignments using this profile will no longer resolve.",
+            "Delete profile", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.OK) return;
+
+        _profileRepo.Delete(profile.Name);
+
+        // Clear any assignments that referenced it
+        foreach (var key in Settings.DirectoryProfileAssignments.Keys.Where(k => Settings.DirectoryProfileAssignments[k] == profile.Name).ToList())
+            Settings.DirectoryProfileAssignments.Remove(key);
+        foreach (var key in Settings.FileProfileOverrides.Keys.Where(k => Settings.FileProfileOverrides[k] == profile.Name).ToList())
+            Settings.FileProfileOverrides.Remove(key);
+        SaveSettings();
+        RefreshSavedProfiles();
+    }
+
+    private void RenameProfile(LogProfile profile)
+    {
+        var input = new InputDialog("Rename profile", "New name:", profile.Name)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (input.ShowDialog() != true || string.IsNullOrWhiteSpace(input.ResponseText)) return;
+
+        var newName = input.ResponseText.Trim();
+        var oldName = profile.Name;
+        if (newName == oldName) return;
+
+        profile.Name = newName;
+        _profileRepo.Save(profile);
+        _profileRepo.Delete(oldName);
+
+        // Update any assignments that referenced the old name
+        foreach (var key in Settings.DirectoryProfileAssignments.Keys.Where(k => Settings.DirectoryProfileAssignments[k] == oldName).ToList())
+            Settings.DirectoryProfileAssignments[key] = newName;
+        foreach (var key in Settings.FileProfileOverrides.Keys.Where(k => Settings.FileProfileOverrides[k] == oldName).ToList())
+            Settings.FileProfileOverrides[key] = newName;
+        SaveSettings();
+        RefreshSavedProfiles();
+    }
+
     private void RefreshSavedProfiles()
     {
         SavedProfiles.Clear();
@@ -564,8 +701,12 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (!Settings.ColumnLayouts.TryGetValue(ColumnLayoutKey(tab), out var layout)) return;
         foreach (var toggle in tab.ColumnToggles)
-            if (layout.TryGetValue(toggle.Name, out var state))
-                toggle.IsVisible = state.Visible;
+        {
+            if (!layout.TryGetValue(toggle.Name, out var state)) continue;
+            toggle.IsVisible = state.Visible;
+            if (state.Width > 0 || state.DisplayIndex > 0)
+                tab.SavedColumnGeometry[toggle.Name] = (state.Width, state.DisplayIndex);
+        }
     }
 
     private void PersistColumnVisibility(LogTabViewModel tab, string column, bool visible)
@@ -576,6 +717,18 @@ public sealed class MainViewModel : ViewModelBase
         if (!layout.TryGetValue(column, out var state))
             layout[column] = state = new ColumnState();
         state.Visible = visible;
+        SaveSettings();
+    }
+
+    private void PersistColumnWidthOrder(LogTabViewModel tab, string column, double width, int displayIndex)
+    {
+        var key = ColumnLayoutKey(tab);
+        if (!Settings.ColumnLayouts.TryGetValue(key, out var layout))
+            Settings.ColumnLayouts[key] = layout = new();
+        if (!layout.TryGetValue(column, out var state))
+            layout[column] = state = new ColumnState();
+        state.Width = width;
+        state.DisplayIndex = displayIndex;
         SaveSettings();
     }
 
@@ -606,17 +759,30 @@ public sealed class MainViewModel : ViewModelBase
     private void ResetSettings()
     {
         var confirm = MessageBox.Show(
-            "Reset all settings (extensions, profile assignments, presets, window layout)?\nLog files and workspaces are not affected.",
+            "Reset all settings (extensions, profile assignments, presets, color/flag rules, column layouts, window layout)?\nLog files and workspaces are not affected.",
             "Reset settings", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (confirm != MessageBoxResult.OK) return;
 
         _settingsStore.Reset();
         var fresh = _settingsStore.Load();
+
+        // Copy ALL fields from the fresh defaults into the live Settings object.
         Settings.IncludedExtensions = fresh.IncludedExtensions;
         Settings.DirectoryProfileAssignments.Clear();
         Settings.FileProfileOverrides.Clear();
         Settings.FilterPresets.Clear();
+        Settings.ColorRules = fresh.ColorRules;
+        Settings.FlagRules = fresh.FlagRules;
+        Settings.ColumnLayouts.Clear();
+        Settings.StreamFollowByDefault = fresh.StreamFollowByDefault;
+        Settings.ShowIndicatorsInTree = fresh.ShowIndicatorsInTree;
+        Settings.ShowIndicatorsInSummary = fresh.ShowIndicatorsInSummary;
+
         OnPropertyChanged(nameof(ExtensionsDisplay));
+        OnPropertyChanged(nameof(FilterPresets));
+
+        // Re-apply default rules to all open tabs immediately.
+        ReapplyRulesToOpenTabs();
     }
 
     public void SaveSettings() => _settingsStore.Save(Settings);

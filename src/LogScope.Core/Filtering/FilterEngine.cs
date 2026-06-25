@@ -52,7 +52,14 @@ public sealed class FilterEngine
                 return !row.Fields.TryGetValue(rule.FieldName!, out var ev) || ev != rule.Value;
 
             case FilterRule.RuleKind.IncludeText:
+                if (rule.FieldName != null)
+                    return row.Fields.TryGetValue(rule.FieldName, out var fvt) && fvt.Contains(rule.Value, comparison);
                 return row.Fields.Values.Any(v => v.Contains(rule.Value, comparison));
+
+            case FilterRule.RuleKind.ExcludeText:
+                if (rule.FieldName != null)
+                    return !row.Fields.TryGetValue(rule.FieldName, out var evt) || !evt.Contains(rule.Value, comparison);
+                return !row.Fields.Values.Any(v => v.Contains(rule.Value, comparison));
 
             case FilterRule.RuleKind.IncludeRegex:
                 var searchValues = rule.FieldName != null

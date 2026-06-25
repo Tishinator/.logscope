@@ -23,6 +23,21 @@ public partial class MainWindow : Window
         var s = _vm.Settings;
         if (s.WindowWidth > 200) Width = s.WindowWidth;
         if (s.WindowHeight > 200) Height = s.WindowHeight;
+
+        if (s.WindowLeft.HasValue && s.WindowTop.HasValue)
+        {
+            // Clamp to virtual screen so the window isn't off-screen after a monitor layout change.
+            var screen = System.Windows.SystemParameters.VirtualScreenLeft;
+            var screenRight = screen + System.Windows.SystemParameters.VirtualScreenWidth;
+            var screenTop = System.Windows.SystemParameters.VirtualScreenTop;
+            var screenBottom = screenTop + System.Windows.SystemParameters.VirtualScreenHeight;
+
+            double left = Math.Max(screen, Math.Min(s.WindowLeft.Value, screenRight - 200));
+            double top = Math.Max(screenTop, Math.Min(s.WindowTop.Value, screenBottom - 100));
+            Left = left;
+            Top = top;
+        }
+
         WindowState = s.WindowMaximized ? WindowState.Maximized : WindowState.Normal;
     }
 
@@ -34,8 +49,11 @@ public partial class MainWindow : Window
         {
             s.WindowWidth = Width;
             s.WindowHeight = Height;
+            s.WindowLeft = Left;
+            s.WindowTop = Top;
         }
         _vm.SaveSettings();
+        _vm.Dispose();
     }
 
     /// <summary>Open a file or directory path (from the command line / Explorer).</summary>

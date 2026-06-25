@@ -59,6 +59,32 @@ public partial class ParserWizardWindow : Window
         RegexPanel.Visibility = RegexRadio.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private void OnFieldsTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (FieldsBox == null) return;
+        var fields = FieldsBox.Text
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(f => f != "RawText")
+            .ToList();
+        if (fields.Count > 0)
+            SyncFieldTypeRows(fields);
+    }
+
+    private void OnPatternTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (PatternBox == null) return;
+        try
+        {
+            var groups = System.Text.RegularExpressions.Regex
+                .Matches(PatternBox.Text, @"\(\?<(\w+)>")
+                .Select(m => m.Groups[1].Value)
+                .ToList();
+            if (groups.Count > 0)
+                SyncFieldTypeRows(groups);
+        }
+        catch { /* ignore malformed pattern during editing */ }
+    }
+
     private void OnQuickDelimiter(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: string tag })
@@ -173,8 +199,55 @@ public partial class ParserWizardWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+
+        var error = ValidateProfile(profile);
+        if (error != null)
+        {
+            MessageBox.Show(error, "Parser setup", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         ResultProfile = profile;
         DialogResult = true;
         Close();
+    }
+
+    private static string? ValidateProfile(LogProfile profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile.Name))
+            return "Profile name must not be blank.";
+
+        if (profile.Kind == LogProfileKind.Delimited)
+        {
+            if (string.IsNullOrEmpty(profile.Delimiter))
+                return "Delimiter must not be empty.";
+
+            if (profile.FieldNames.Count == 0)
+                return "At least one field name is required.";
+
+            var duplicates = profile.FieldNames
+                .GroupBy(f => f, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+            if (duplicates.Count > 0)
+                return $"Duplicate field names: {string.Join(", ", duplicates)}";
+        }
+
+        if (profile.Kind == LogProfileKind.Regex)
+        {
+            if (string.IsNullOrWhiteSpace(profile.Pattern))
+                return "Regex pattern must not be blank.";
+
+            try { _ = new System.Text.RegularExpressions.Regex(profile.Pattern); }
+            catch (System.Text.RegularExpressions.RegexParseException ex)
+                { return $"Regex pattern is invalid: {ex.Message}"; }
+
+            var hasNamedGroups = System.Text.RegularExpressions.Regex.IsMatch(profile.Pattern, @"\(\?<\w+>");
+            if (!hasNamedGroups)
+                return "Regex pattern must contain at least one named capture group, e.g. (?<Level>\\w+).";
+        }
+
+        return null;
     }
 }

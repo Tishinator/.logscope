@@ -46,13 +46,15 @@
                         <Button Content="Tab" Click="OnQuickDelimiter" Tag="&#x9;" Width="40"/>
                     </StackPanel>
                     <TextBlock Text="Field names (comma-separated)" Foreground="#AAA" Margin="0,4,0,2"/>
-                    <TextBox x:Name="FieldsBox" Text="Timestamp, Level, Module, Message" Padding="3"/>
+                    <TextBox x:Name="FieldsBox" Text="Timestamp, Level, Module, Message" Padding="3"
+                             TextChanged="OnFieldsTextChanged"/>
                 </StackPanel>
 
                 <!-- Regex config -->
                 <StackPanel x:Name="RegexPanel" Visibility="Collapsed">
                     <TextBlock Text="Regex pattern (use named groups e.g. (?&lt;Level&gt;\w+))" Foreground="#AAA" TextWrapping="Wrap" Margin="0,0,0,2"/>
                     <TextBox x:Name="PatternBox" Padding="3" AcceptsReturn="False"
+                             TextChanged="OnPatternTextChanged"
                              Text="^(?&lt;Timestamp&gt;\S+ \S+)\s+(?&lt;Level&gt;\w+)\s+(?&lt;Message&gt;.+)$"/>
                 </StackPanel>
 

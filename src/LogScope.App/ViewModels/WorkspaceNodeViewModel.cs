@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
+using System.Runtime.CompilerServices;
 using LogScope.Core.Workspace;
 
 namespace LogScope.App.ViewModels;
@@ -7,13 +9,24 @@ namespace LogScope.App.ViewModels;
 /// <summary>
 /// A node in the workspace tree — either a folder (with children) or a log file (a leaf).
 /// </summary>
-public sealed class WorkspaceNodeViewModel
+public sealed class WorkspaceNodeViewModel : INotifyPropertyChanged
 {
     public string Name { get; }
     public string? FilePath { get; }
     public bool IsFile => FilePath != null;
     public bool IsExpanded { get; set; }
     public ObservableCollection<WorkspaceNodeViewModel> Children { get; } = [];
+
+    private int _flaggedCount;
+    public int FlaggedCount
+    {
+        get => _flaggedCount;
+        set { if (_flaggedCount != value) { _flaggedCount = value; OnPropertyChanged(); } }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
     /// <summary>Hover details (UR-02): size and modified date kept out of the always-on tree.</summary>
     public string? Tooltip { get; }

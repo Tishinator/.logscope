@@ -20,11 +20,38 @@
 
                 <TextBlock Text="Filter:" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,4,0"/>
                 <TextBox Width="160" VerticalAlignment="Center" Margin="0,0,4,0"
-                         Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=250}"/>
+                         Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=250}">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasFilterRegexError}" Value="True">
+                                    <Setter Property="BorderBrush" Value="#FF4444"/>
+                                    <Setter Property="BorderThickness" Value="2"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+                <TextBlock Text="{Binding FilterRegexError}" Foreground="#FF6666" FontSize="10"
+                           VerticalAlignment="Center" Margin="0,0,4,0"
+                           Visibility="{Binding HasFilterRegexError, Converter={StaticResource BoolToVis}}"
+                           ToolTip="{Binding FilterRegexError}" MaxWidth="160"
+                           TextTrimming="CharacterEllipsis"/>
                 <CheckBox Content="regex" Foreground="#CCC" VerticalAlignment="Center"
-                          IsChecked="{Binding FilterIsRegex}" Margin="0,0,8,0"/>
+                          IsChecked="{Binding FilterIsRegex}" Margin="0,0,4,0"/>
+                <ComboBox Width="90" VerticalAlignment="Center" Margin="0,0,8,0"
+                          ItemsSource="{Binding SearchFields}" SelectedValue="{Binding FilterField}"
+                          ToolTip="Limit include-filter to a specific column"/>
                 <CheckBox Content="flagged only" Foreground="#CCC" VerticalAlignment="Center"
                           IsChecked="{Binding OnlyFlagged}" Margin="0,0,8,0"/>
+
+                <!-- Exclude filter -->
+                <TextBlock Text="Exclude:" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBox Width="130" VerticalAlignment="Center" Margin="0,0,4,0"
+                         Text="{Binding ExcludeText, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                         ToolTip="Hide rows containing this text (or matching the regex)"/>
+                <CheckBox Content="regex" Foreground="#CCC" VerticalAlignment="Center"
+                          IsChecked="{Binding ExcludeIsRegex}" Margin="0,0,16,0"/>
 
                 <!-- Time-range filter, shown only when a Timestamp field is mapped (UR-08) -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
@@ -52,7 +79,12 @@
                 <CheckBox Content="W" Foreground="#CCC" VerticalAlignment="Center" ToolTip="Whole word"
                           IsChecked="{Binding SearchWholeWord}" Margin="0,0,4,0"/>
                 <Button Content="◀" Command="{Binding FindPrevCommand}" Margin="0,0,2,0" Padding="6,2" ToolTip="Previous match"/>
-                <Button Content="▶" Command="{Binding FindNextCommand}" Margin="0,0,16,0" Padding="6,2" ToolTip="Next match"/>
+                <Button Content="▶" Command="{Binding FindNextCommand}" Margin="0,0,4,0" Padding="6,2" ToolTip="Next match"/>
+                <TextBlock Text="{Binding SearchRegexError}" Foreground="#FF6666" FontSize="10"
+                           VerticalAlignment="Center" Margin="0,0,12,0"
+                           Visibility="{Binding HasSearchRegexError, Converter={StaticResource BoolToVis}}"
+                           ToolTip="{Binding SearchRegexError}" MaxWidth="160"
+                           TextTrimming="CharacterEllipsis"/>
 
                 <CheckBox Content="Stream" Foreground="#7CD" VerticalAlignment="Center"
                           IsChecked="{Binding StreamingEnabled}" ToolTip="Follow appended content" Margin="0,0,8,0"/>
