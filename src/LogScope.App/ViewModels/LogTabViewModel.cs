@@ -21,6 +21,12 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     private LogDocument _document;
     private LogStreamWatcher? _watcher;
 
+    // Mutable mirrors of the document content so streaming can append without a full reload.
+    private List<ParsedRow> _liveRows = [];
+    private List<RawLogLine> _liveRaw = [];
+    private int _parsedCount;
+    private int _fallbackCount;
+
     public string Title { get; }
     public string FilePath { get; }
     public IReadOnlyList<string> Columns { get; private set; }
@@ -50,6 +56,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         Columns = document.Columns;
         _colorEngine = new ColorRuleEngine(colorRules);
         _flagEngine = new FlagRuleEngine(flagRules);
+        InitLive();
 
         FindNextCommand = new RelayCommand(FindNext);
         FindPrevCommand = new RelayCommand(FindPrev);
@@ -69,6 +76,14 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         RefreshView();
     }
 
+    private void InitLive()
+    {
+        _liveRows = _document.Rows.ToList();
+        _liveRaw = _document.RawLines.ToList();
+        _parsedCount = _document.ParsedCount;
+        _fallbackCount = _document.FallbackCount;
+    }
+
     /// <summary>Raised when the column set changes so the view can rebuild the grid columns.</summary>
     public event Action? ColumnsChanged;
 
@@ -76,6 +91,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     public void ApplyDocument(LogDocument document)
     {
         _document = document;
+        InitLive();
         Columns = document.Columns;
         OnPropertyChanged(nameof(Columns));
         OnPropertyChanged(nameof(RawText));
@@ -109,7 +125,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     public bool IsSyncEnabled { get => _isSyncEnabled; set => SetField(ref _isSyncEnabled, value); }
 
     /// <summary>Highest physical line number currently loaded.</summary>
-    public int LastLineNumber => _document.Rows.Count > 0 ? _document.Rows[^1].LineNumber : 0;
+    public int LastLineNumber => _liveRows.Count > 0 ? _liveRows[^1].LineNumber : 0;
 
     /// <summary>(line, timestamp) pairs from the Timestamp-typed field, for timestamp sync.</summary>
     public IReadOnlyList<(int Line, DateTime Timestamp)> TimestampedRows()
@@ -118,7 +134,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         if (field == null) return [];
 
         var list = new List<(int, DateTime)>();
-        foreach (var row in _document.Rows)
+        foreach (var row in _liveRows)
         {
             if (row.Fields.TryGetValue(field, out var value) &&
                 Core.Sync.TimestampParser.TryParse(value) is { } ts)
@@ -151,7 +167,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     }
     public bool IsTableView => !_isRawView;
 
-    public string RawText => string.Join(Environment.NewLine, _document.RawLines.Select(l => l.Text));
+    public string RawText => string.Join(Environment.NewLine, _liveRaw.Select(l => l.Text));
 
     // ---- Filtering ----
     private string _filterText = string.Empty;
@@ -211,26 +227,48 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         }
     }
 
+    /// <summary>When true, new streamed entries auto-scroll into view (UR-12 follow newest).</summary>
+    private bool _autoFollow = true;
+    public bool AutoFollow
+    {
+        get => _autoFollow;
+        set
+        {
+            if (!SetField(ref _autoFollow, value)) return;
+            if (value) NewEntriesCount = 0;
+            OnPropertyChanged(nameof(ShowNewEntriesBadge));
+        }
+    }
+
+    /// <summary>Count of entries appended while the user has scrolled away from the tail.</summary>
+    private int _newEntriesCount;
+    public int NewEntriesCount
+    {
+        get => _newEntriesCount;
+        private set { if (SetField(ref _newEntriesCount, value)) OnPropertyChanged(nameof(ShowNewEntriesBadge)); }
+    }
+
+    public bool ShowNewEntriesBadge => StreamingEnabled && !AutoFollow && NewEntriesCount > 0;
+
+    /// <summary>Raised when the view should scroll to the newest row (live-follow).</summary>
+    public event Action? ScrollToEndRequested;
+
+    public RelayCommand ReturnToLiveCommand => _returnToLive ??= new RelayCommand(() =>
+    {
+        AutoFollow = true;
+        ScrollToEndRequested?.Invoke();
+    });
+    private RelayCommand? _returnToLive;
+
     // ---------------------------------------------------------------
 
     private void RefreshView()
     {
-        var flagResult = _flagEngine.Evaluate(_document.Rows);
+        var flagResult = _flagEngine.Evaluate(_liveRows);
         var flaggedSet = new HashSet<int>(flagResult.FlaggedLineNumbers);
         FlaggedCount = flagResult.FlaggedCount;
 
-        IEnumerable<ParsedRow> rows = _document.Rows;
-
-        if (!string.IsNullOrEmpty(FilterText))
-        {
-            var rule = FilterIsRegex
-                ? FilterRule.IncludeMatchingRegex(FilterText)
-                : FilterRule.IncludeContainingText(FilterText, caseSensitive: false);
-            rows = new FilterEngine([rule]).Apply(rows);
-        }
-
-        if (OnlyFlagged)
-            rows = rows.Where(r => flaggedSet.Contains(r.LineNumber));
+        IEnumerable<ParsedRow> rows = FilterRows(_liveRows, flaggedSet);
 
         // Continuation lines keyed by the primary row's line number
         var continuationByLine = _document.Events
@@ -245,10 +283,32 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
             Rows.Add(new LogRowViewModel(row, continuation, styling.RowBackground, flaggedSet.Contains(row.LineNumber)));
         }
 
+        UpdateStatus();
+    }
+
+    /// <summary>Applies the current filter (text/regex + flagged-only) to a row set.</summary>
+    private IEnumerable<ParsedRow> FilterRows(IEnumerable<ParsedRow> rows, ISet<int> flaggedSet)
+    {
+        if (!string.IsNullOrEmpty(FilterText))
+        {
+            var rule = FilterIsRegex
+                ? FilterRule.IncludeMatchingRegex(FilterText)
+                : FilterRule.IncludeContainingText(FilterText, caseSensitive: false);
+            rows = new FilterEngine([rule]).Apply(rows);
+        }
+
+        if (OnlyFlagged)
+            rows = rows.Where(r => flaggedSet.Contains(r.LineNumber));
+
+        return rows;
+    }
+
+    private void UpdateStatus()
+    {
         var parts = new List<string>
         {
-            $"{Rows.Count} of {_document.Rows.Count} rows",
-            $"parsed {_document.ParsedCount}, fallback {_document.FallbackCount}",
+            $"{Rows.Count} of {_liveRows.Count} rows",
+            $"parsed {_parsedCount}, fallback {_fallbackCount}",
             $"{FlaggedCount} flagged",
             $"profile: {ProfileName}",
             _document.EncodingName,
@@ -300,10 +360,11 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
 
     private void StartStreaming()
     {
+        AutoFollow = true;
         _watcher = new LogStreamWatcher(FilePath);
         _watcher.NewLinesAvailable += OnNewLines;
-        _ = _watcher.StartAsync();
-        Status = "Streaming…  " + Status;
+        // Resume after the content already loaded so nothing appended before now is skipped.
+        _ = _watcher.StartAsync(LastLineNumber);
     }
 
     private void StopStreaming()
@@ -315,16 +376,48 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         _watcher = null;
     }
 
-    private void OnNewLines(IReadOnlyList<RawLogLine> _)
+    /// <summary>
+    /// Appends only the newly read lines (no full reload), applying the active profile,
+    /// filter, and color/flag rules, then follows the tail when AutoFollow is on (UR-12).
+    /// </summary>
+    private void OnNewLines(IReadOnlyList<RawLogLine> newRaw)
     {
-        // Reload the document with the same profile to pick up appended content,
-        // then refresh on the UI thread.
-        Application.Current?.Dispatcher.Invoke(() =>
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+
+        dispatcher.BeginInvoke(() =>
         {
-            _document = LogDocument.Load(FilePath, _document.Profile);
-            Columns = _document.Columns;
+            if (!StreamingEnabled) return;
+
+            var (parsedRows, parsed, fallback) = LogDocument.ParseLines(newRaw, _document.Profile);
+            _liveRaw.AddRange(newRaw);
+            _liveRows.AddRange(parsedRows);
+            _parsedCount += parsed;
+            _fallbackCount += fallback;
+
+            var flagged = _flagEngine.Evaluate(parsedRows);
+            var flaggedSet = new HashSet<int>(flagged.FlaggedLineNumbers);
+            FlaggedCount += flagged.FlaggedCount;
+
+            int appendedToView = 0;
+            foreach (var row in FilterRows(parsedRows, flaggedSet))
+            {
+                var styling = _colorEngine.Evaluate(row);
+                Rows.Add(new LogRowViewModel(row, Array.Empty<RawLogLine>(), styling.RowBackground,
+                    flaggedSet.Contains(row.LineNumber)));
+                appendedToView++;
+            }
+
             OnPropertyChanged(nameof(RawText));
-            RefreshView();
+            UpdateStatus();
+
+            if (appendedToView > 0)
+            {
+                if (AutoFollow)
+                    ScrollToEndRequested?.Invoke();
+                else
+                    NewEntriesCount += appendedToView;
+            }
         });
     }
 

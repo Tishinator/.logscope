@@ -80,6 +80,12 @@ public sealed class LogDocument
             truncated, detection.EncodingName, detection.IsFallback ? detection.Warning : null);
     }
 
+    /// <summary>
+    /// Parses a batch of raw lines with the given profile (used for incremental streaming appends).
+    /// </summary>
+    public static (List<ParsedRow> Rows, int Parsed, int Fallback) ParseLines(
+        IReadOnlyList<RawLogLine> rawLines, LogProfile profile) => ParseRows(rawLines, profile);
+
     private static (List<ParsedRow> rows, int parsed, int fallback) ParseRows(
         IReadOnlyList<RawLogLine> rawLines, LogProfile profile)
     {

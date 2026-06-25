@@ -37,6 +37,7 @@ public partial class LogTabView : UserControl
             _vm.RestoreOrderRequested -= RestoreOrder;
             _vm.ScrollToRowRequested -= ScrollToRow;
             _vm.ColumnsChanged -= OnColumnsChanged;
+            _vm.ScrollToEndRequested -= ScrollToEnd;
         }
 
         if (e.NewValue is LogTabViewModel vm)
@@ -45,8 +46,50 @@ public partial class LogTabView : UserControl
             _vm.RestoreOrderRequested += RestoreOrder;
             _vm.ScrollToRowRequested += ScrollToRow;
             _vm.ColumnsChanged += OnColumnsChanged;
+            _vm.ScrollToEndRequested += ScrollToEnd;
             GenerateColumns(vm);
         }
+    }
+
+    /// <summary>Auto-follow the tail and detect when the user scrolls away (UR-12).</summary>
+    private void OnGridScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (_vm == null || !_vm.StreamingEnabled) return;
+
+        bool atBottom = e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - 2.0;
+
+        if (e.ExtentHeightChange != 0)
+        {
+            // Content grew (new streamed rows). Stay pinned to the tail while following.
+            if (_vm.AutoFollow)
+                ScrollViewerOf(Grid)?.ScrollToBottom();
+        }
+        else if (e.ViewportHeightChange == 0 && e.VerticalChange != 0)
+        {
+            // A genuine user scroll: follow only while pinned to the bottom.
+            _vm.AutoFollow = atBottom;
+        }
+    }
+
+    private void ScrollToEnd()
+    {
+        if (Rows().LastOrDefault() is { } last)
+            Dispatcher.InvokeAsync(() => Grid.ScrollIntoView(last));
+    }
+
+    private IReadOnlyList<LogRowViewModel> Rows() =>
+        _vm?.Rows as IReadOnlyList<LogRowViewModel> ?? [];
+
+    private static System.Windows.Controls.ScrollViewer? ScrollViewerOf(DependencyObject root)
+    {
+        if (root is System.Windows.Controls.ScrollViewer sv) return sv;
+        int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            var found = ScrollViewerOf(System.Windows.Media.VisualTreeHelper.GetChild(root, i));
+            if (found != null) return found;
+        }
+        return null;
     }
 
     /// <summary>Rebuild grid columns after a new parser profile is applied to this tab.</summary>

@@ -18,25 +18,60 @@ public sealed class LogStreamWatcher : IDisposable
         _pollInterval = pollInterval ?? TimeSpan.FromMilliseconds(500);
     }
 
-    public Task StartAsync()
+    /// <summary>
+    /// Begins watching for appended content. When <paramref name="startAfterLines"/> is given,
+    /// streaming resumes after that many physical lines (i.e. right after the content already
+    /// loaded by the viewer), so nothing appended before streaming was enabled is skipped.
+    /// When omitted (-1), it seeks to the current end of file.
+    /// </summary>
+    public Task StartAsync(int startAfterLines = -1)
     {
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
 
-        // Seek to end-of-file so we only emit newly appended content
         if (File.Exists(_path))
         {
             using var probe = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            _bytesRead = probe.Length;
-            // Count existing lines so new line numbers continue from there
-            probe.Seek(0, SeekOrigin.Begin);
-            using var counter = new StreamReader(probe, leaveOpen: true);
-            while (counter.ReadLine() != null)
-                _linesRead++;
+
+            if (startAfterLines < 0)
+            {
+                _bytesRead = probe.Length;
+                probe.Seek(0, SeekOrigin.Begin);
+                using var counter = new StreamReader(probe, leaveOpen: true);
+                while (counter.ReadLine() != null)
+                    _linesRead++;
+            }
+            else
+            {
+                _bytesRead = OffsetAfterLines(probe, startAfterLines);
+                _linesRead = startAfterLines;
+            }
         }
 
         Task.Run(() => PollLoop(token), token);
         return Task.CompletedTask;
+    }
+
+    /// <summary>Byte offset just past the Nth newline (start of line N+1), or EOF if fewer lines.</summary>
+    private static long OffsetAfterLines(FileStream stream, int lines)
+    {
+        if (lines <= 0) return 0;
+
+        stream.Seek(0, SeekOrigin.Begin);
+        var buffer = new byte[1 << 16];
+        long pos = 0;
+        int newlines = 0;
+        int read;
+        while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            for (int i = 0; i < read; i++)
+            {
+                pos++;
+                if (buffer[i] == (byte)'\n' && ++newlines >= lines)
+                    return pos;
+            }
+        }
+        return stream.Length;
     }
 
     public void Stop() => _cts?.Cancel();
