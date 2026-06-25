@@ -38,6 +38,7 @@ public partial class LogTabView : UserControl
             _vm.ScrollToRowRequested -= ScrollToRow;
             _vm.ColumnsChanged -= OnColumnsChanged;
             _vm.ScrollToEndRequested -= ScrollToEnd;
+            _vm.ColumnVisibilityChanged -= OnColumnVisibilityChanged;
         }
 
         if (e.NewValue is LogTabViewModel vm)
@@ -47,7 +48,21 @@ public partial class LogTabView : UserControl
             _vm.ScrollToRowRequested += ScrollToRow;
             _vm.ColumnsChanged += OnColumnsChanged;
             _vm.ScrollToEndRequested += ScrollToEnd;
+            _vm.ColumnVisibilityChanged += OnColumnVisibilityChanged;
             GenerateColumns(vm);
+        }
+    }
+
+    /// <summary>Show/hide a single column without rebuilding the grid (SR-10).</summary>
+    private void OnColumnVisibilityChanged(string name, bool visible)
+    {
+        foreach (var col in Grid.Columns)
+        {
+            if (Equals(col.Header, name))
+            {
+                col.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                break;
+            }
         }
     }
 
@@ -120,6 +135,7 @@ public partial class LogTabView : UserControl
             Width = new DataGridLength(60),
             IsReadOnly = true,
             SortMemberPath = nameof(LogRowViewModel.LineNumber),
+            Visibility = vm.IsColumnVisible("Line") ? Visibility.Visible : Visibility.Collapsed,
         });
 
         foreach (var column in vm.Columns)
@@ -131,6 +147,7 @@ public partial class LogTabView : UserControl
                 Width = column == "Message" || column == "RawText"
                     ? new DataGridLength(1, DataGridLengthUnitType.Star)
                     : DataGridLength.Auto,
+                Visibility = vm.IsColumnVisible(column) ? Visibility.Visible : Visibility.Collapsed,
             });
         }
     }

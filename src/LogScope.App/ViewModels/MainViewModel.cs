@@ -401,7 +401,9 @@ public sealed class MainViewModel : ViewModelBase
             var profile = ResolveProfile(filePath);
             var doc = LogDocument.Load(filePath, profile, encoding: null, LogDocument.DefaultMaxLines);
             var tab = new LogTabViewModel(doc, ColorRules(), FlagRules());
+            ApplyColumnLayout(tab);
             tab.PropertyChanged += OnTabPropertyChanged;
+            tab.ColumnVisibilityChanged += (name, visible) => PersistColumnVisibility(tab, name, visible);
             OpenTabs.Add(tab);
             SelectedTab = tab;
         }
@@ -551,6 +553,30 @@ public sealed class MainViewModel : ViewModelBase
         SavedProfiles.Clear();
         foreach (var p in _profileRepo.LoadAll())
             SavedProfiles.Add(p);
+    }
+
+    // ----- Column show/hide persistence (SR-10) -----
+
+    private static string ColumnLayoutKey(LogTabViewModel tab) =>
+        string.IsNullOrWhiteSpace(tab.CurrentProfile.Name) ? "Auto" : tab.CurrentProfile.Name;
+
+    private void ApplyColumnLayout(LogTabViewModel tab)
+    {
+        if (!Settings.ColumnLayouts.TryGetValue(ColumnLayoutKey(tab), out var layout)) return;
+        foreach (var toggle in tab.ColumnToggles)
+            if (layout.TryGetValue(toggle.Name, out var state))
+                toggle.IsVisible = state.Visible;
+    }
+
+    private void PersistColumnVisibility(LogTabViewModel tab, string column, bool visible)
+    {
+        var key = ColumnLayoutKey(tab);
+        if (!Settings.ColumnLayouts.TryGetValue(key, out var layout))
+            Settings.ColumnLayouts[key] = layout = new();
+        if (!layout.TryGetValue(column, out var state))
+            layout[column] = state = new ColumnState();
+        state.Visible = visible;
+        SaveSettings();
     }
 
     // ----- Extensions & settings -----

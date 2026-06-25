@@ -32,6 +32,33 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     public IReadOnlyList<string> Columns { get; private set; }
     public ObservableCollection<LogRowViewModel> Rows { get; } = [];
 
+    /// <summary>Show/hide chooser entries for each column (SR-10). "Line" plus the data columns.</summary>
+    public ObservableCollection<ColumnToggle> ColumnToggles { get; } = [];
+
+    /// <summary>Raised when a column's visibility changes (name, isVisible) for the view + persistence.</summary>
+    public event Action<string, bool>? ColumnVisibilityChanged;
+
+    /// <summary>Column names hidden when this tab was created (from persisted layout).</summary>
+    public ISet<string> InitiallyHidden { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public bool IsColumnVisible(string name) =>
+        ColumnToggles.FirstOrDefault(c => c.Name == name)?.IsVisible ?? true;
+
+    private void BuildColumnToggles()
+    {
+        ColumnToggles.Clear();
+        AddToggle("Line");
+        foreach (var col in Columns)
+            AddToggle(col);
+    }
+
+    private void AddToggle(string name)
+    {
+        var visible = !InitiallyHidden.Contains(name);
+        ColumnToggles.Add(new ColumnToggle(name, visible,
+            t => ColumnVisibilityChanged?.Invoke(t.Name, t.IsVisible)));
+    }
+
     public string ProfileName => string.IsNullOrWhiteSpace(_document.Profile.Name) ? "Auto" : _document.Profile.Name;
     public LogProfile CurrentProfile => _document.Profile;
     public string EncodingName => _document.EncodingName;
@@ -57,6 +84,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         _colorEngine = new ColorRuleEngine(colorRules);
         _flagEngine = new FlagRuleEngine(flagRules);
         InitLive();
+        BuildColumnToggles();
 
         FindNextCommand = new RelayCommand(FindNext);
         FindPrevCommand = new RelayCommand(FindPrev);
@@ -93,6 +121,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         _document = document;
         InitLive();
         Columns = document.Columns;
+        BuildColumnToggles();
         OnPropertyChanged(nameof(Columns));
         OnPropertyChanged(nameof(RawText));
         OnPropertyChanged(nameof(ProfileName));

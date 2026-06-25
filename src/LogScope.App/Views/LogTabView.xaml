@@ -51,6 +51,18 @@
 
                 <Button Content="Restore order" Command="{Binding RestoreOrderCommand}" Padding="6,2" Margin="0,0,6,0"
                         ToolTip="Restore original file order (UR-09)"/>
+                <Menu Background="Transparent" VerticalAlignment="Center" Margin="0,0,6,0">
+                    <MenuItem Header="Columns ▾" Foreground="#CCC" ItemsSource="{Binding ColumnToggles}">
+                        <MenuItem.ItemContainerStyle>
+                            <Style TargetType="MenuItem">
+                                <Setter Property="Header" Value="{Binding Name}"/>
+                                <Setter Property="IsCheckable" Value="True"/>
+                                <Setter Property="IsChecked" Value="{Binding IsVisible, Mode=TwoWay}"/>
+                                <Setter Property="StaysOpenOnClick" Value="True"/>
+                            </Style>
+                        </MenuItem.ItemContainerStyle>
+                    </MenuItem>
+                </Menu>
                 <Button Content="Copy ▾" Padding="6,2" Margin="0,0,6,0" Click="OnCopyMenu"
                         ToolTip="Copy selected (or all visible) rows">
                     <Button.ContextMenu>
