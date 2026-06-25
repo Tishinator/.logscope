@@ -19,9 +19,10 @@ Grab the latest `LogScope.exe` from the [Releases page](https://github.com/Tishi
 - **Automatic format detection** — unknown logs are inspected and a delimiter/raw profile is suggested; you always keep raw access if parsing falls back.
 - **Parsing** — delimiter-based (`|`, `||`, tab, comma…) and regex (named capture groups) parsing into semantic fields.
 - **Multiline events** — stack traces and continuation lines attach to the event above them, expandable in a details row.
-- **Filter & search** — filter rows by text or regex, show only flagged events; search with case-sensitivity / whole-word / regex and jump between matches.
+- **Filter & search** — filter rows by text or regex, by a time range (when a Timestamp field is mapped), or to flagged events only; search with case-sensitivity / whole-word / regex, limited to a chosen column or all columns, and jump between matches.
+- **Show/hide columns** — toggle any column from the Columns menu; the layout persists per profile.
 - **Color & flag rules** — error/warning rows are tinted and flagged out of the box (`ERROR`, `WARN`, `FATAL`, `FAIL`, `ASSERT`, `TIMEOUT`, `EXCEPTION`).
-- **Streaming** — follow a log that is actively being appended; the view updates within ~1 second.
+- **Streaming** — follow a log that is actively being appended; new lines are parsed and appended incrementally and the view auto-scrolls to the tail. Scroll up to pause following (a "New entries: N" badge appears); click it to jump back to live.
 - **External actions** — reveal a file in Explorer or open it in your default editor.
 
 - **Parser profiles** — create reusable delimited/regex profiles in a wizard with live preview; assign a profile to a directory (applies to subfolders) or override per file; import/export profiles as local files.
