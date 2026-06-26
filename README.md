@@ -6,64 +6,82 @@
 
 A read-only, fully offline log analysis tool for SDETs and other technical users. Inspect, parse, filter, search, and monitor sensitive plain-text log files on Windows — without ever modifying them or sending data anywhere.
 
-> **Status:** MVP (v0.0.1). Core engine is fully test-covered; the desktop UI wires it together.
+> **Current version: v0.4.0**
 
 ## Download
 
-Grab the latest `LogScope.exe` from the [Releases page](https://github.com/Tishinator/.logscope/releases). It's a single self-contained executable — no installer, no .NET runtime to install, no admin rights required. Just download and run.
+Grab the latest `LogScope.exe` from the [Releases page](https://github.com/Tishinator/.logscope/releases). Single self-contained executable — no installer, no .NET runtime required, no admin rights.
 
 ## What it does
 
+### Opening files
 - **Open a file or a folder** — a single `.log`, or a whole directory scanned recursively for `.log` files.
-- **Table & raw views** — parsed fields as columns, or the original text exactly as stored. Physical line numbers are always preserved.
-- **Automatic format detection** — unknown logs are inspected and a delimiter/raw profile is suggested; you always keep raw access if parsing falls back.
-- **Parsing** — delimiter-based (`|`, `||`, tab, comma…) and regex (named capture groups) parsing into semantic fields.
-- **Multiline events** — stack traces and continuation lines attach to the event above them, expandable in a details row.
-- **Filter & search** — filter rows by text or regex, by a time range (when a Timestamp field is mapped), or to flagged events only; search with case-sensitivity / whole-word / regex, limited to a chosen column or all columns, and jump between matches.
-- **Show/hide columns** — toggle any column from the Columns menu; the layout persists per profile.
-- **Color & flag rules** — error/warning rows are tinted and flagged out of the box (`ERROR`, `WARN`, `FATAL`, `FAIL`, `ASSERT`, `TIMEOUT`, `EXCEPTION`).
-- **Streaming** — follow a log that is actively being appended; new lines are parsed and appended incrementally and the view auto-scrolls to the tail. Scroll up to pause following (a "New entries: N" badge appears); click it to jump back to live.
-- **External actions** — reveal a file in Explorer or open it in your default editor.
+- **Format auto-detection** — when opening an unknown file, .logscope detects the likely format and prompts you to Accept, Revise in the wizard, or fall back to Raw. You always keep raw access.
+- **Configurable extensions** — add `.txt`, `.csv`, or any custom extension from Settings ▸ File Extensions.
+- **Workspace auto-refresh** — the file tree updates automatically when files are added or removed from the workspace.
 
-- **Parser profiles** — create reusable delimited/regex profiles in a wizard with live preview; assign a profile to a directory (applies to subfolders) or override per file; import/export profiles as local files.
-- **Encoding** — auto-detects UTF-8 / UTF-16 (LE/BE) and falls back to Windows-1252 (ANSI) with a warning; you can also force an encoding from the toolbar.
-- **Filter presets** — save the current filter as a named preset and reapply it later.
-- **Field types / templates** — assign a semantic type to each field (Timestamp, Level, Module, Message, Thread, Device ID, Test Case, Run ID, Result). The Level field sorts by a configurable severity order (with custom levels), not alphabetically.
-- **Custom color rules** — author your own row/field visual rules (field value, message-contains, or regex → color, with priority) in Settings ▸ Color rules; they persist.
-- **Side-by-side split view** — right-click a tab ▸ **Split with active tab** to view logs side by side (repeat on another tab to add it; or View ▸ Split all). Optional synchronization (off by default) aligns the panes by physical line number or nearest timestamp when you select a row; sync is toggleable per pane and falls back to line sync (with a notice) when a log has no timestamp field.
-- **Collapsible workspace panel** — collapse the file tree accordion-style to give logs more room.
-- **Persistence** — window size, included extensions, profile assignments, presets, and color rules are saved between sessions, under your app-data folder (never in the log directory). Reset from the Settings menu.
+### Viewing
+- **Table & raw views** — parsed fields as columns, or the original text exactly as stored. Physical line numbers are always preserved.
+- **Show/hide columns** — toggle any parsed column; the layout persists per profile.
+- **Multiline events** — stack traces and continuation lines fold into the event above them; select a row to expand its detail.
+
+### Parsing profiles
+- **Delimiter & regex** — tab-delimited, comma, `|`, `||`, or any custom separator; or named-group regex.
+- **Field semantic types** — assign Timestamp, Level, Module, Message, Thread, Device ID, Test Case, Run ID, or Result to any field. Level sorts by severity order (with custom levels), not alphabetically.
+- **Parser wizard** — guided setup with a live preview of the first 50 lines; validates before saving.
+- **Profile assignment** — assign a profile to a directory (applies recursively) or override per file.
+- **Import / export** — share profiles as local JSON files.
+- **Multiline rule** — define a "new event" regex so continuation lines (stack traces, wrapped messages) attach to the preceding event rather than becoming new rows.
+
+### Filtering & search
+- **Filter** — by text or regex, any field, time range (when a Timestamp field is mapped), or flagged events only. Include and exclude conditions can be combined. Scope to a specific column with the field-scope picker.
+- **Filter presets** — save the current filter as a named preset, optionally scoped to the active profile so it only appears when that profile is in use.
+- **Search** — case-sensitive, whole-word, regex, column-specific, with next/prev navigation. "Search all rows" mode finds matches even when they are hidden by the current filter, and reports them without clearing your filter.
+- **Regex error feedback** — invalid filter or search patterns show a red border and inline error message instead of crashing.
+
+### Visual rules
+- **Color rules** — built-in rules tint ERROR/FATAL rows red and WARN rows amber. Author your own rules by field value, message substring, regex, or timestamp range — with configurable priority. Rules can color entire rows or individual fields.
+- **Flag rules** — `ERROR`, `WARN`, `FATAL`, `FAIL`, `ASSERT`, `TIMEOUT`, `EXCEPTION` are flagged out of the box. Customize or add your own field-value or regex rules.
+- **Flagged indicators** — badge counts appear in the file tree, tab headers, and the status bar. Each location is independently toggleable from Settings.
+
+### Streaming
+- **Live tail** — enable streaming on any tab to follow a log that is actively being written. New lines are parsed, filtered, and color-ruled incrementally within ~1 second.
+- **Partial-write safety** — lines are only emitted once a newline arrives; a write split across multiple flushes is held in a buffer and assembled correctly.
+- **CRLF support** — `\r\n` line endings split across separate writes are handled correctly.
+- **File rotation / truncation** — when a file is truncated or replaced, .logscope detects it, reloads from the beginning, and shows a reset notice.
+- **Multiline streaming** — continuation lines (stack traces, etc.) fold into the preceding event row even when delivered in separate streaming batches.
+- **Auto-follow** — the view scrolls to the tail automatically. Scroll up manually to pause following; a **New entries: N** badge appears. Click it to jump back to live.
+
+### Side-by-side comparison
+- **Split view** — right-click any tab ▸ **Split with active tab**; or View ▸ **Split all open logs**.
+- **Draggable splitter** — drag the divider between panes to resize them.
+- **Scroll-linked sync** — scrolling one pane syncs the other automatically when synchronization is enabled.
+- **Sync modes** — line-number (default) or nearest-timestamp. Sync is toggleable per pane. Falls back to line sync with a notice when a log has no parsed timestamp.
+
+### Large files
+- **Background loading** — files are parsed on a background thread; a progress bar and Cancel button appear while loading.
+- **Chunked paging** — files over 500,000 lines show a **Load next 100k rows** button in the status bar to page in more content on demand, backed by a byte-offset line index.
+
+### Other
+- **Sort & restore** — click any column header to sort; the toolbar always offers Restore original file order.
+- **External actions** — Reveal in Explorer, Open in default editor, Copy rows / raw text / line references.
+- **Encoding** — auto-detects UTF-8 / UTF-16 LE/BE and falls back to Windows-1252 with a warning; force an encoding from the toolbar at any time.
+- **Window position** — window size, position, and split layout persist across sessions.
 
 ## Safety guarantees
 
 - **Read-only.** Source log files and their folders are never modified, renamed, deleted, or written to.
-- **Offline.** No telemetry, no network requests, no local server or listening port.
-- **Out-of-workspace state.** All profiles, settings, and presets live under `%APPDATA%\logscope` — never inside the selected workspace.
-
-## Requirement coverage
-
-Implemented for this release: directory/single-file open, recursive `.log` tree with configurable
-extensions, table & raw views with physical line numbers, raw fallback, format auto-detection,
-delimiter & regex parsing, multiline event grouping, a parser wizard with preview, directory- and
-file-level profile assignment, profile import/export, field/text/regex filtering, search
-(case/whole-word/regex with next/prev), column sorting + restore-file-order, configurable color &
-flag rules, flagged indicators (tab badges + status), near-real-time streaming, copy
-(rows/raw/line-refs), reveal-in-Explorer / open-in-editor, hover metadata, encoding detection +
-manual override, filter presets, field semantic types with custom level severity, side-by-side
-synchronized comparison (line/timestamp), settings persistence, and a large-file safety cap backed
-by a byte-offset line index.
-
-Not yet implemented (planned): advanced cross-log synchronized search, and live scroll-linked
-(not just selection-linked) synchronization.
+- **Offline.** No telemetry, no network requests, no local server or listening port of any kind.
+- **Out-of-workspace state.** All profiles, settings, presets, and indexes are stored under `%APPDATA%\logscope` — never inside the selected workspace.
 
 ## Project layout
 
 ```
 src/
-  LogScope.Core/   — parsing, filtering, search, color/flag rules, streaming, workspace (no UI)
-  LogScope.App/    — WPF desktop UI (MVVM) on top of Core
+  LogScope.Core/        — parsing, filtering, search, color/flag rules, streaming, workspace (no UI)
+  LogScope.App/         — WPF desktop UI (MVVM) on top of Core
 tests/
-  LogScope.Core.Tests/  — xUnit + FluentAssertions, 83 tests
+  LogScope.Core.Tests/  — xUnit + FluentAssertions (179 tests)
 ```
 
 ## Build from source
@@ -85,4 +103,4 @@ dotnet publish src/LogScope.App -c Release -r win-x64 --self-contained true \
 
 ## Built with TDD
 
-The Core engine was built test-first, one behavior at a time. Every parser, filter, search, rule engine, and the streaming watcher has tests written before the implementation.
+The Core engine was built test-first, one behavior at a time. Every parser, filter, search, rule engine, and streaming watcher has tests written before the implementation.
