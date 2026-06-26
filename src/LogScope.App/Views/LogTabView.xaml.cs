@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using LogScope.App.Converters;
 using LogScope.App.ViewModels;
 using LogScope.Core.Documents;
 
@@ -156,6 +157,8 @@ public partial class LogTabView : UserControl
         }
     }
 
+    private static readonly FieldForegroundConverter _fieldFgConverter = new();
+
     private void AddColumn(LogTabViewModel vm, string name, Binding binding, DataGridLength defaultWidth)
     {
         var savedWidth = vm.SavedColumnGeometry.TryGetValue(name, out var geo) && geo.Width > 0
@@ -171,6 +174,20 @@ public partial class LogTabView : UserControl
             SortMemberPath = name == "Line" ? nameof(LogRowViewModel.LineNumber) : null,
             Visibility = vm.IsColumnVisible(name) ? Visibility.Visible : Visibility.Collapsed,
         };
+
+        // Apply per-field foreground color rule from color engine (UR-10 / issue #22).
+        if (name != "Line")
+        {
+            var elementStyle = new System.Windows.Style(typeof(System.Windows.Controls.TextBlock));
+            elementStyle.Setters.Add(new Setter(
+                System.Windows.Controls.TextBlock.ForegroundProperty,
+                new Binding(".")
+                {
+                    Converter = _fieldFgConverter,
+                    ConverterParameter = name
+                }));
+            col.ElementStyle = elementStyle;
+        }
 
         // Persist width when the user finishes resizing.
         DependencyPropertyDescriptor

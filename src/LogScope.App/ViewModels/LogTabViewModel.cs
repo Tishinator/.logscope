@@ -382,7 +382,8 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         {
             var styling = _colorEngine.Evaluate(row);
             var continuation = continuationByLine.GetValueOrDefault(row.LineNumber, Array.Empty<RawLogLine>());
-            Rows.Add(new LogRowViewModel(row, continuation, styling.RowBackground, flaggedSet.Contains(row.LineNumber)));
+            Rows.Add(new LogRowViewModel(row, continuation, styling.RowBackground,
+                flaggedSet.Contains(row.LineNumber), styling.FieldOverrides));
         }
 
         UpdateStatus();
@@ -559,7 +560,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
             {
                 var styling = _colorEngine.Evaluate(row);
                 Rows.Add(new LogRowViewModel(row, Array.Empty<RawLogLine>(), styling.RowBackground,
-                    flaggedSet.Contains(row.LineNumber)));
+                    flaggedSet.Contains(row.LineNumber), styling.FieldOverrides));
                 appendedToView++;
             }
 

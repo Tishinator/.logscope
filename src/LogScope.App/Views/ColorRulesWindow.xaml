@@ -36,13 +36,23 @@
                                     Binding="{Binding FieldName, UpdateSourceTrigger=PropertyChanged}"/>
                 <DataGridTextColumn Header="Value / pattern" Width="*"
                                     Binding="{Binding MatchValue, UpdateSourceTrigger=PropertyChanged}"/>
-                <DataGridTextColumn Header="Color (hex)" Width="110"
+                <DataGridTextColumn Header="Row BG (hex)" Width="100"
                                     Binding="{Binding Background, UpdateSourceTrigger=PropertyChanged}"/>
-                <DataGridTemplateColumn Header="Preview" Width="70" IsReadOnly="True">
+                <DataGridTextColumn Header="Field FG (hex)" Width="100"
+                                    Binding="{Binding FieldHighlight, UpdateSourceTrigger=PropertyChanged}"/>
+                <DataGridTemplateColumn Header="Preview" Width="80" IsReadOnly="True">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Border Background="{Binding Background, Converter={StaticResource HexToBrush}}"
-                                    Height="18" Margin="4" CornerRadius="2" BorderBrush="#555" BorderThickness="1"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Background="{Binding Background, Converter={StaticResource HexToBrush}}"
+                                        Height="18" Width="28" Margin="2,0" CornerRadius="2" BorderBrush="#555" BorderThickness="1"
+                                        ToolTip="Row background"/>
+                                <Border Background="#1E1E1E" Height="18" Width="28" Margin="2,0" CornerRadius="2" BorderBrush="#555" BorderThickness="1"
+                                        ToolTip="Field foreground sample">
+                                    <TextBlock Text="Aa" Foreground="{Binding FieldHighlight, Converter={StaticResource HexToBrush}}"
+                                               FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
