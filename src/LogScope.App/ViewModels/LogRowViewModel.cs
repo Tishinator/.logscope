@@ -19,9 +19,13 @@ public sealed class LogRowViewModel
         ? t
         : string.Join(" ", _row.Fields.Values);
 
-    public IReadOnlyList<RawLogLine> ContinuationLines { get; }
-    public bool HasContinuation => ContinuationLines.Count > 0;
-    public string ContinuationText => string.Join(Environment.NewLine, ContinuationLines.Select(l => l.Text));
+    private readonly List<RawLogLine> _continuationLines;
+    public IReadOnlyList<RawLogLine> ContinuationLines => _continuationLines;
+    public bool HasContinuation => _continuationLines.Count > 0;
+    public string ContinuationText => string.Join(Environment.NewLine, _continuationLines.Select(l => l.Text));
+
+    /// <summary>Appends a continuation line (e.g. stack trace line) received via live streaming (issue #10).</summary>
+    public void AppendContinuation(RawLogLine line) => _continuationLines.Add(line);
 
     public string? RowBackground { get; }
     public bool IsFlagged { get; }
@@ -34,7 +38,7 @@ public sealed class LogRowViewModel
         IReadOnlyDictionary<string, FieldStyling>? fieldOverrides = null)
     {
         _row = row;
-        ContinuationLines = continuationLines;
+        _continuationLines = continuationLines.ToList();
         RowBackground = rowBackground;
         IsFlagged = isFlagged;
         _fieldOverrides = fieldOverrides ?? new Dictionary<string, FieldStyling>();

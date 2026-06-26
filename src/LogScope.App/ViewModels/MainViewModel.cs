@@ -54,6 +54,13 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public RelayCommand ExportProfileCommand { get; }
     public RelayCommand DeleteProfileCommand { get; }
     public RelayCommand RenameProfileCommand { get; }
+    public RelayCommand CancelLoadCommand { get; }
+
+    private bool _isLoading;
+    public bool IsLoading { get => _isLoading; private set => SetField(ref _isLoading, value); }
+    private double _loadingProgress;
+    public double LoadingProgress { get => _loadingProgress; private set => SetField(ref _loadingProgress, value); }
+    private CancellationTokenSource? _loadCts;
 
     public MainViewModel()
     {
@@ -69,7 +76,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OpenFolderCommand = new RelayCommand(OpenFolder);
         RevealInExplorerCommand = new RelayCommand(p => RevealInExplorer((p as WorkspaceNodeViewModel)?.FilePath ?? p as string));
         OpenInEditorCommand = new RelayCommand(p => OpenInEditor((p as WorkspaceNodeViewModel)?.FilePath ?? p as string));
-        OpenInNewTabCommand = new RelayCommand(p => { if ((p as WorkspaceNodeViewModel)?.FilePath is { } f) OpenLog(f, forceNewTab: true); });
+        OpenInNewTabCommand = new RelayCommand(p => { if ((p as WorkspaceNodeViewModel)?.FilePath is { } f) _ = OpenLogAsync(f, forceNewTab: true); });
+        CancelLoadCommand = new RelayCommand(() => { _loadCts?.Cancel(); });
         EditExtensionsCommand = new RelayCommand(EditExtensions);
         NewProfileCommand = new RelayCommand(() => LaunchParserWizard(SelectedTab?.FilePath));
         ImportProfileCommand = new RelayCommand(ImportProfile);
@@ -514,7 +522,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _refreshDebounce?.Dispose();
     }
 
-    public void OpenLog(string filePath, bool forceNewTab = false)
+    public void OpenLog(string filePath, bool forceNewTab = false) => _ = OpenLogAsync(filePath, forceNewTab);
+
+    public async Task OpenLogAsync(string filePath, bool forceNewTab = false)
     {
         var existing = OpenTabs.FirstOrDefault(t => string.Equals(t.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
         if (existing != null && !forceNewTab)
@@ -527,10 +537,23 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             if (choice == MessageBoxResult.Yes) { SelectedTab = existing; return; }
         }
 
+        // Cancel any in-progress load.
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        var cts = _loadCts;
+
+        var progress = new Progress<double>(v => LoadingProgress = v);
+        IsLoading = true;
+        LoadingProgress = 0;
+
         try
         {
             var profile = ResolveProfile(filePath);
-            var doc = LogDocument.Load(filePath, profile, encoding: null, LogDocument.DefaultMaxLines);
+            var doc = await LogDocument.LoadAsync(filePath, profile,
+                encoding: null, LogDocument.DefaultMaxLines, progress, cts.Token);
+
+            if (cts.IsCancellationRequested) return;
+
             var tab = new LogTabViewModel(doc, ColorRules(), FlagRules());
             if (Settings.StreamFollowByDefault)
                 tab.StreamingEnabled = true;
@@ -542,9 +565,18 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             OpenTabs.Add(tab);
             SelectedTab = tab;
         }
+        catch (OperationCanceledException)
+        {
+            // User cancelled — nothing to report.
+        }
         catch (Exception ex)
         {
             MessageBox.Show($"Could not open log:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            if (!cts.IsCancellationRequested || _loadCts == cts)
+                IsLoading = false;
         }
     }
 

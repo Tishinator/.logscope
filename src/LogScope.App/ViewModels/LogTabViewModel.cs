@@ -89,6 +89,12 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     public event Action? RestoreOrderRequested;
     public RelayCommand RestoreOrderCommand { get; }
 
+    /// <summary>Load the next chunk of rows from a truncated file (issue #3).</summary>
+    public RelayCommand LoadMoreCommand { get; }
+    public bool CanLoadMore => _document.Truncated && _document.LineIndex != null &&
+                               _document.LastLoadedLine < _document.LineIndex.LineCount;
+    public long TotalLineCount => _document.LineIndex?.LineCount ?? (_document.Truncated ? -1 : _liveRows.Count);
+
     /// <summary>The rows currently selected in the grid (set by the view for copy operations).</summary>
     public IReadOnlyList<LogRowViewModel> SelectedRows { get; set; } = [];
 
@@ -107,6 +113,7 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         FindPrevCommand = new RelayCommand(FindPrev);
         CopyRowsCommand = new RelayCommand(() => Copy(CopyMode.Tsv));
         CopyRawCommand = new RelayCommand(() => Copy(CopyMode.Raw));
+        LoadMoreCommand = new RelayCommand(LoadNextChunk, () => CanLoadMore);
         CopyLineRefsCommand = new RelayCommand(() => Copy(CopyMode.LineRefs));
         RestoreOrderCommand = new RelayCommand(() => RestoreOrderRequested?.Invoke());
 
@@ -588,11 +595,41 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
         return new ParsedRow(vm.LineNumber, dict);
     }
 
+    /// <summary>Appends the next chunk of rows from the file line index (issue #3).</summary>
+    private void LoadNextChunk()
+    {
+        if (!CanLoadMore) return;
+        var chunk = _document.ReadNextChunk();
+        if (chunk == null) { OnPropertyChanged(nameof(CanLoadMore)); return; }
+
+        var (newRaw, parsedRows) = chunk.Value;
+        _liveRaw.AddRange(newRaw);
+        _liveRows.AddRange(parsedRows);
+        _parsedCount += parsedRows.Count;
+
+        var flagged = _flagEngine.Evaluate(parsedRows);
+        var flaggedSet = new HashSet<int>(flagged.FlaggedLineNumbers);
+        FlaggedCount += flagged.FlaggedCount;
+
+        foreach (var row in FilterRows(parsedRows, flaggedSet))
+        {
+            var styling = _colorEngine.Evaluate(row);
+            Rows.Add(new LogRowViewModel(row, Array.Empty<RawLogLine>(), styling.RowBackground,
+                flaggedSet.Contains(row.LineNumber), styling.FieldOverrides));
+        }
+
+        OnPropertyChanged(nameof(CanLoadMore));
+        OnPropertyChanged(nameof(TotalLineCount));
+        OnPropertyChanged(nameof(RawText));
+        UpdateStatus();
+    }
+
     private void StartStreaming()
     {
         AutoFollow = true;
         _watcher = new LogStreamWatcher(FilePath);
         _watcher.NewLinesAvailable += OnNewLines;
+        _watcher.FileReset += OnFileReset;
         // Resume after the content already loaded so nothing appended before now is skipped.
         _ = _watcher.StartAsync(LastLineNumber);
     }
@@ -601,9 +638,25 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     {
         if (_watcher == null) return;
         _watcher.NewLinesAvailable -= OnNewLines;
+        _watcher.FileReset -= OnFileReset;
         _watcher.Stop();
         _watcher.Dispose();
         _watcher = null;
+    }
+
+    /// <summary>File was truncated or rotated — reload from scratch (issue #33).</summary>
+    private void OnFileReset()
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        dispatcher?.BeginInvoke(() =>
+        {
+            if (!StreamingEnabled) return;
+            var doc = LogDocument.Load(FilePath, _document.Profile, encoding: null, LogDocument.DefaultMaxLines);
+            ApplyDocument(doc);
+            Status = "[File reset — reloaded from start]";
+            AutoFollow = true;
+            ScrollToEndRequested?.Invoke();
+        });
     }
 
     /// <summary>
@@ -625,12 +678,39 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
             _parsedCount += parsed;
             _fallbackCount += fallback;
 
-            var flagged = _flagEngine.Evaluate(parsedRows);
+            // Multiline grouping (issue #10): if the profile has a new-event pattern, fold
+            // continuation lines into the preceding event instead of adding new rows.
+            var multilinePattern = _document.Profile.MultilineNewEventPattern;
+            System.Text.RegularExpressions.Regex? newEventRegex = null;
+            if (multilinePattern != null)
+                newEventRegex = new System.Text.RegularExpressions.Regex(multilinePattern, System.Text.RegularExpressions.RegexOptions.Compiled);
+
+            var rawByLine = newRaw.ToDictionary(r => r.LineNumber);
+            var newEventRows = new List<ParsedRow>();
+
+            foreach (var row in parsedRows)
+            {
+                var rawLine = rawByLine.GetValueOrDefault(row.LineNumber);
+                bool isNewEvent = newEventRegex == null || rawLine == null || newEventRegex.IsMatch(rawLine.Text);
+
+                if (!isNewEvent && rawLine != null && Rows.Count > 0)
+                {
+                    // Continuation: append to last visible row.
+                    Rows[^1].AppendContinuation(rawLine);
+                    // Also add to _liveRows but do not create a new display row.
+                }
+                else
+                {
+                    newEventRows.Add(row);
+                }
+            }
+
+            var flagged = _flagEngine.Evaluate(newEventRows);
             var flaggedSet = new HashSet<int>(flagged.FlaggedLineNumbers);
             FlaggedCount += flagged.FlaggedCount;
 
             int appendedToView = 0;
-            foreach (var row in FilterRows(parsedRows, flaggedSet))
+            foreach (var row in FilterRows(newEventRows, flaggedSet))
             {
                 var styling = _colorEngine.Evaluate(row);
                 Rows.Add(new LogRowViewModel(row, Array.Empty<RawLogLine>(), styling.RowBackground,

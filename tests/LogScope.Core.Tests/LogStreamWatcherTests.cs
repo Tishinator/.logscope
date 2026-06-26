@@ -100,4 +100,73 @@ public class LogStreamWatcherTests : IDisposable
 
         received.Should().BeEmpty();
     }
+
+    // -- New reliability tests (issue #33) --
+
+    [Fact]
+    public async Task PartialWrite_DoesNotEmitLine_UntilNewlineArrives()
+    {
+        // Write a partial line (no newline) — must not be emitted yet.
+        File.WriteAllText(_tempFile, "partial");
+
+        var received = new List<string>();
+        using var watcher = new LogStreamWatcher(_tempFile);
+        watcher.NewLinesAvailable += lines => received.AddRange(lines.Select(l => l.Text));
+
+        await watcher.StartAsync(0);
+        await Task.Delay(1200);
+
+        received.Should().BeEmpty("partial write without newline must not be emitted");
+
+        // Complete the line.
+        File.AppendAllText(_tempFile, " line complete\n");
+        await Task.Delay(1200);
+
+        received.Should().ContainSingle().Which.Should().Be("partial line complete");
+    }
+
+    [Fact]
+    public async Task CrlfSplitAcrossWrites_EmitsCorrectLine()
+    {
+        // CR written first, LF written second (CRLF across two polls).
+        File.WriteAllText(_tempFile, "crlf line\r");
+
+        var received = new List<string>();
+        using var watcher = new LogStreamWatcher(_tempFile);
+        watcher.NewLinesAvailable += lines => received.AddRange(lines.Select(l => l.Text));
+
+        await watcher.StartAsync(0);
+        await Task.Delay(1200);
+
+        received.Should().BeEmpty("CR without LF is still partial");
+
+        File.AppendAllText(_tempFile, "\nnext line\n");
+        await Task.Delay(1200);
+
+        received.Should().Contain("crlf line");
+        received.Should().Contain("next line");
+    }
+
+    [Fact]
+    public async Task FileTruncation_RaisesFileReset_AndReadsNewContent()
+    {
+        // Write a long initial content so truncation is clearly detectable by size.
+        File.WriteAllText(_tempFile, string.Concat(Enumerable.Repeat("old content line\n", 20)));
+
+        var received = new List<string>();
+        var resetFired = false;
+        using var watcher = new LogStreamWatcher(_tempFile);
+        watcher.NewLinesAvailable += lines => received.AddRange(lines.Select(l => l.Text));
+        watcher.FileReset += () => resetFired = true;
+
+        await watcher.StartAsync();
+        await Task.Delay(800);
+
+        // Truncate and write shorter new content — file is now clearly smaller than before.
+        File.WriteAllText(_tempFile, "after reset\n");
+        await Task.Delay(1200);
+
+        resetFired.Should().BeTrue("truncation must fire FileReset");
+        received.Should().Contain("after reset");
+    }
 }

@@ -158,7 +158,14 @@
 
         <!-- Status bar -->
         <Border DockPanel.Dock="Bottom" Background="#007ACC" Padding="6,3">
-            <TextBlock Text="{Binding Status}" Foreground="White" FontSize="11"/>
+            <DockPanel>
+                <!-- Load-more button for truncated files (issue #3) -->
+                <Button DockPanel.Dock="Right" Content="Load next 100k rows"
+                        Command="{Binding LoadMoreCommand}"
+                        Padding="8,1" Margin="6,0,0,0" FontSize="11"
+                        Visibility="{Binding CanLoadMore, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Text="{Binding Status}" Foreground="White" FontSize="11" VerticalAlignment="Center"/>
+            </DockPanel>
         </Border>
 
         <Grid>

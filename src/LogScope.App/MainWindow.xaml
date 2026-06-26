@@ -379,6 +379,18 @@
 
             </DockPanel>
         </Grid>
+
+        <!-- Loading overlay: shown while a file is being parsed in background (issue #4) -->
+        <Grid Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
+              Background="#AA000000">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="280">
+                <TextBlock Text="Loading file…" Foreground="White" FontSize="14" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                <ProgressBar Value="{Binding LoadingProgress}" Minimum="0" Maximum="1" Height="18" Margin="0,0,0,12"
+                             Background="#444" Foreground="#2EA043"/>
+                <Button Content="Cancel" Command="{Binding CancelLoadCommand}"
+                        HorizontalAlignment="Center" Padding="20,6"/>
+            </StackPanel>
+        </Grid>
         </Grid>
     </DockPanel>
 </Window>

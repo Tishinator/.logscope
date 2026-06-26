@@ -1,7 +1,13 @@
+using System.Text;
 using LogScope.Core.Reading;
 
 namespace LogScope.Core.Streaming;
 
+/// <summary>
+/// Polls a log file for appended content and raises <see cref="NewLinesAvailable"/> with complete
+/// lines only — partial writes (no trailing newline yet) are held in a byte buffer until a newline
+/// arrives.  File truncation and rotation are detected and reset cleanly (SR-05 / issue #33).
+/// </summary>
 public sealed class LogStreamWatcher : IDisposable
 {
     private readonly string _path;
@@ -10,7 +16,16 @@ public sealed class LogStreamWatcher : IDisposable
     private long _bytesRead;
     private int _linesRead;
 
+    // Bytes received after the last '\n' — held until a newline arrives (partial-write guard).
+    private byte[] _partial = [];
+    private int _partialLen;
+
+    // Per-watcher decoder so multibyte sequences split across reads are handled correctly.
+    private readonly Decoder _decoder = Encoding.UTF8.GetDecoder();
+
     public event Action<IReadOnlyList<RawLogLine>>? NewLinesAvailable;
+    /// <summary>Raised when the file is truncated or replaced so the caller can reset its view.</summary>
+    public event Action? FileReset;
 
     public LogStreamWatcher(string path, TimeSpan? pollInterval = null)
     {
@@ -19,10 +34,8 @@ public sealed class LogStreamWatcher : IDisposable
     }
 
     /// <summary>
-    /// Begins watching for appended content. When <paramref name="startAfterLines"/> is given,
-    /// streaming resumes after that many physical lines (i.e. right after the content already
-    /// loaded by the viewer), so nothing appended before streaming was enabled is skipped.
-    /// When omitted (-1), it seeks to the current end of file.
+    /// Begins watching.  When <paramref name="startAfterLines"/> is given, streaming resumes
+    /// right after that many physical lines (no skipping). When −1, seeks to current EOF.
     /// </summary>
     public Task StartAsync(int startAfterLines = -1)
     {
@@ -52,7 +65,6 @@ public sealed class LogStreamWatcher : IDisposable
         return Task.CompletedTask;
     }
 
-    /// <summary>Byte offset just past the Nth newline (start of line N+1), or EOF if fewer lines.</summary>
     private static long OffsetAfterLines(FileStream stream, int lines)
     {
         if (lines <= 0) return 0;
@@ -91,30 +103,85 @@ public sealed class LogStreamWatcher : IDisposable
             }
             catch (IOException)
             {
-                // file temporarily locked; retry next cycle
+                // File temporarily locked or absent — retry next cycle.
+            }
+            catch (Exception)
+            {
+                // Don't let any unexpected exception kill the watcher.
             }
         }
     }
 
     private void ReadNewLines()
     {
+        if (!File.Exists(_path)) return;
+
         using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 
-        if (stream.Length <= _bytesRead)
-            return;
-
-        stream.Seek(_bytesRead, SeekOrigin.Begin);
-        using var reader = new StreamReader(stream, leaveOpen: true);
-
-        var newLines = new List<RawLogLine>();
-        string? line;
-        while ((line = reader.ReadLine()) != null)
+        // Detect truncation / rotation.
+        if (stream.Length < _bytesRead)
         {
-            _linesRead++;
-            newLines.Add(new RawLogLine(_linesRead, line));
+            _bytesRead = 0;
+            _linesRead = 0;
+            _partialLen = 0;
+            _decoder.Reset();
+            FileReset?.Invoke();
         }
 
+        if (stream.Length == _bytesRead) return;
+
+        stream.Seek(_bytesRead, SeekOrigin.Begin);
+
+        // Read new raw bytes.
+        var rawBytes = new byte[stream.Length - _bytesRead];
+        int totalRead = stream.Read(rawBytes, 0, rawBytes.Length);
+        if (totalRead == 0) return;
+
         _bytesRead = stream.Position;
+
+        // Prepend any buffered partial line from the previous poll.
+        byte[] data;
+        if (_partialLen > 0)
+        {
+            data = new byte[_partialLen + totalRead];
+            Array.Copy(_partial, data, _partialLen);
+            Array.Copy(rawBytes, 0, data, _partialLen, totalRead);
+            _partialLen = 0;
+        }
+        else
+        {
+            data = rawBytes.Length == totalRead ? rawBytes : rawBytes[..totalRead];
+        }
+
+        // Split on '\n', keeping only complete lines and buffering any trailing partial.
+        var newLines = new List<RawLogLine>();
+        int segStart = 0;
+
+        for (int i = 0; i < data.Length; i++)
+        {
+            if (data[i] == (byte)'\n')
+            {
+                int segEnd = i;
+                // Strip optional '\r' before '\n' for CRLF files.
+                if (segEnd > segStart && data[segEnd - 1] == (byte)'\r')
+                    segEnd--;
+
+                string text = Encoding.UTF8.GetString(data, segStart, segEnd - segStart);
+                _linesRead++;
+                newLines.Add(new RawLogLine(_linesRead, text));
+                segStart = i + 1;
+            }
+        }
+
+        // Buffer remaining bytes (no trailing newline yet).
+        int remaining = data.Length - segStart;
+        if (remaining > 0)
+        {
+            if (_partial.Length < remaining)
+                _partial = new byte[remaining * 2];
+            Array.Copy(data, segStart, _partial, 0, remaining);
+            _partialLen = remaining;
+        }
 
         if (newLines.Count > 0)
             NewLinesAvailable?.Invoke(newLines);
