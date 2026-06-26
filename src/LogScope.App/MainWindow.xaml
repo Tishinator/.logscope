@@ -315,32 +315,52 @@
 
                 <!-- ===== Content: split group OR single selected tab ===== -->
                 <Grid>
-                    <ItemsControl Visibility="{Binding CompareMode, Converter={StaticResource BoolToVis}}"
-                                  ItemsSource="{Binding SplitGroup}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Rows="1"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="#0E0E0E" BorderThickness="1">
+                    <!-- Split view: two panes with draggable splitter (issue #13) -->
+                    <Grid Visibility="{Binding CompareMode, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="4"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left pane — SplitGroup[0] -->
+                        <Border Grid.Column="0" BorderBrush="#0E0E0E" BorderThickness="1"
+                                DataContext="{Binding SplitGroup[0]}">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Top" Background="#1B2B3F" Padding="6,3">
                                     <DockPanel>
-                                        <Border DockPanel.Dock="Top" Background="#1B2B3F" Padding="6,3">
-                                            <DockPanel>
-                                                <CheckBox DockPanel.Dock="Right" Content="Sync" Foreground="#9CD"
-                                                          VerticalAlignment="Center" IsChecked="{Binding IsSyncEnabled}"
-                                                          ToolTip="Include this log when synchronizing the split view"/>
-                                                <TextBlock Text="{Binding Title}" Foreground="#ECECEC" FontWeight="SemiBold"
-                                                           VerticalAlignment="Center"/>
-                                            </DockPanel>
-                                        </Border>
-                                        <views:LogTabView/>
+                                        <CheckBox DockPanel.Dock="Right" Content="Sync" Foreground="#9CD"
+                                                  VerticalAlignment="Center" IsChecked="{Binding IsSyncEnabled}"
+                                                  ToolTip="Include this log when synchronizing the split view"/>
+                                        <TextBlock Text="{Binding Title}" Foreground="#ECECEC" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
                                     </DockPanel>
                                 </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                                <views:LogTabView/>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Draggable splitter -->
+                        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
+                                      Background="#3C4A5E" Cursor="SizeWE"/>
+
+                        <!-- Right pane — SplitGroup[1] -->
+                        <Border Grid.Column="2" BorderBrush="#0E0E0E" BorderThickness="1"
+                                DataContext="{Binding SplitGroup[1]}">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Top" Background="#1B2B3F" Padding="6,3">
+                                    <DockPanel>
+                                        <CheckBox DockPanel.Dock="Right" Content="Sync" Foreground="#9CD"
+                                                  VerticalAlignment="Center" IsChecked="{Binding IsSyncEnabled}"
+                                                  ToolTip="Include this log when synchronizing the split view"/>
+                                        <TextBlock Text="{Binding Title}" Foreground="#ECECEC" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                </Border>
+                                <views:LogTabView/>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
 
                     <ContentControl Visibility="{Binding ShowSingleView, Converter={StaticResource BoolToVis}}"
                                     Content="{Binding SelectedTab}">

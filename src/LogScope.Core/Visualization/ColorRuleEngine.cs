@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using LogScope.Core.Parsing;
+using LogScope.Core.Sync;
 
 namespace LogScope.Core.Visualization;
 
@@ -57,6 +58,13 @@ public sealed class ColorRuleEngine
 
             ColorRule.MatchKind.Regex =>
                 row.Fields.Values.Any(v => regex!.IsMatch(v)),
+
+            ColorRule.MatchKind.TimestampRange =>
+                rule.FieldName != null &&
+                row.Fields.TryGetValue(rule.FieldName, out var tsv) &&
+                TimestampParser.TryParse(tsv) is { } ts &&
+                (rule.TimeFrom == null || ts >= rule.TimeFrom) &&
+                (rule.TimeTo == null || ts <= rule.TimeTo),
 
             _ => false
         };

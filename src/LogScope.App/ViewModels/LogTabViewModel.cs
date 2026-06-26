@@ -194,6 +194,12 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     /// <summary>Raised when a synced selection should be scrolled into view.</summary>
     public event Action<LogRowViewModel>? ScrollToRowRequested;
 
+    /// <summary>Raised when the user scrolls; the row is the first visible row (for live sync, issue #12).</summary>
+    public event Action<LogRowViewModel>? ScrollAnchorChanged;
+
+    /// <summary>Called by the view when scrolling changes the first visible row.</summary>
+    public void ReportScrollAnchor(LogRowViewModel row) => ScrollAnchorChanged?.Invoke(row);
+
     /// <summary>Selects (and scrolls to) the row for the given physical line, or the nearest visible row.</summary>
     public void SelectLine(int line)
     {
@@ -295,6 +301,9 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
 
     private bool _searchWholeWord;
     public bool SearchWholeWord { get => _searchWholeWord; set => SetField(ref _searchWholeWord, value); }
+
+    private bool _searchAllRows;
+    public bool SearchAllRows { get => _searchAllRows; set => SetField(ref _searchAllRows, value); }
 
     /// <summary>Search scope: "All fields" or a specific column (UR-08).</summary>
     public ObservableCollection<string> SearchFields { get; } = [];
@@ -463,16 +472,34 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
 
     private void FindNext()
     {
-        if (string.IsNullOrEmpty(SearchText) || Rows.Count == 0) return;
-        int start = SelectedRow != null ? Rows.IndexOf(SelectedRow) + 1 : 0;
-        FindFrom(start, forward: true);
+        if (string.IsNullOrEmpty(SearchText)) return;
+        if (SearchAllRows)
+        {
+            int startLine = SelectedRow?.LineNumber ?? 0;
+            FindFromRaw(startLine, forward: true);
+        }
+        else
+        {
+            if (Rows.Count == 0) return;
+            int start = SelectedRow != null ? Rows.IndexOf(SelectedRow) + 1 : 0;
+            FindFrom(start, forward: true);
+        }
     }
 
     private void FindPrev()
     {
-        if (string.IsNullOrEmpty(SearchText) || Rows.Count == 0) return;
-        int start = SelectedRow != null ? Rows.IndexOf(SelectedRow) - 1 : Rows.Count - 1;
-        FindFrom(start, forward: false);
+        if (string.IsNullOrEmpty(SearchText)) return;
+        if (SearchAllRows)
+        {
+            int startLine = SelectedRow?.LineNumber ?? int.MaxValue;
+            FindFromRaw(startLine, forward: false);
+        }
+        else
+        {
+            if (Rows.Count == 0) return;
+            int start = SelectedRow != null ? Rows.IndexOf(SelectedRow) - 1 : Rows.Count - 1;
+            FindFrom(start, forward: false);
+        }
     }
 
     private void FindFrom(int start, bool forward)
@@ -505,6 +532,53 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
                 SelectedRow = row;
                 return;
             }
+        }
+    }
+
+    /// <summary>Search all loaded rows (ignoring the current filter) and navigate to the match.</summary>
+    private void FindFromRaw(int currentLine, bool forward)
+    {
+        SearchRegexError = string.Empty;
+        OnPropertyChanged(nameof(HasSearchRegexError));
+
+        if (SearchIsRegex)
+        {
+            try { _ = new System.Text.RegularExpressions.Regex(SearchText); }
+            catch (System.Text.RegularExpressions.RegexParseException ex)
+            {
+                SearchRegexError = ex.Message;
+                OnPropertyChanged(nameof(HasSearchRegexError));
+                return;
+            }
+        }
+
+        var field = SearchField == AllFields ? null : SearchField;
+        var query = new SearchQuery(SearchText, SearchCaseSensitive, SearchIsRegex, SearchWholeWord, field);
+
+        // Ordered scan with wrap: start just past currentLine, then wrap around.
+        IEnumerable<ParsedRow> ordered = forward
+            ? _liveRows.SkipWhile(r => r.LineNumber <= currentLine)
+                       .Concat(_liveRows.TakeWhile(r => r.LineNumber <= currentLine))
+            : ((IEnumerable<ParsedRow>)_liveRows).Reverse()
+                       .SkipWhile(r => r.LineNumber >= currentLine)
+                       .Concat(((IEnumerable<ParsedRow>)_liveRows).Reverse()
+                                .TakeWhile(r => r.LineNumber >= currentLine));
+
+        foreach (var raw in ordered)
+        {
+            if (!_searchEngine.Search([raw], query).Any()) continue;
+
+            var visible = Rows.FirstOrDefault(r => r.LineNumber == raw.LineNumber);
+            if (visible != null)
+            {
+                SelectedRow = visible;
+            }
+            else
+            {
+                // Row is filtered out — inform the user without silently clearing their filter.
+                Status = $"Match at line {raw.LineNumber} (hidden by current filter — clear filter to navigate there)";
+            }
+            return;
         }
     }
 

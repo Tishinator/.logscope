@@ -69,24 +69,56 @@ public partial class LogTabView : UserControl
         }
     }
 
-    /// <summary>Auto-follow the tail and detect when the user scrolls away (UR-12).</summary>
+    private DateTime _lastScrollSync = DateTime.MinValue;
+
+    /// <summary>Auto-follow the tail and detect when the user scrolls away (UR-12). Also fires scroll-linked sync (issue #12).</summary>
     private void OnGridScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        if (_vm == null || !_vm.StreamingEnabled) return;
+        if (_vm == null) return;
 
-        bool atBottom = e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - 2.0;
+        if (_vm.StreamingEnabled)
+        {
+            bool atBottom = e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - 2.0;
 
-        if (e.ExtentHeightChange != 0)
-        {
-            // Content grew (new streamed rows). Stay pinned to the tail while following.
-            if (_vm.AutoFollow)
-                ScrollViewerOf(Grid)?.ScrollToBottom();
+            if (e.ExtentHeightChange != 0)
+            {
+                if (_vm.AutoFollow)
+                    ScrollViewerOf(Grid)?.ScrollToBottom();
+            }
+            else if (e.ViewportHeightChange == 0 && e.VerticalChange != 0)
+            {
+                _vm.AutoFollow = atBottom;
+            }
         }
-        else if (e.ViewportHeightChange == 0 && e.VerticalChange != 0)
+
+        // Scroll-linked sync: when the user scrolls (not programmatic content growth),
+        // report the first visible row as the sync anchor (issue #12).
+        if (e.ViewportHeightChange == 0 && e.VerticalChange != 0 && e.ExtentHeightChange == 0)
         {
-            // A genuine user scroll: follow only while pinned to the bottom.
-            _vm.AutoFollow = atBottom;
+            var now = DateTime.UtcNow;
+            if ((now - _lastScrollSync).TotalMilliseconds < 150) return; // throttle to ~150ms
+            _lastScrollSync = now;
+
+            var firstVisible = GetFirstVisibleRow();
+            if (firstVisible != null)
+                _vm.ReportScrollAnchor(firstVisible);
         }
+    }
+
+    /// <summary>Returns the first row that is fully visible in the DataGrid viewport.</summary>
+    private LogRowViewModel? GetFirstVisibleRow()
+    {
+        if (Grid.Items.Count == 0) return null;
+        for (int i = 0; i < Grid.Items.Count; i++)
+        {
+            if (Grid.ItemContainerGenerator.ContainerFromIndex(i) is DataGridRow row)
+            {
+                var transform = row.TransformToAncestor(Grid);
+                var pt = transform.Transform(new System.Windows.Point(0, 0));
+                if (pt.Y >= 0) return Grid.Items[i] as LogRowViewModel;
+            }
+        }
+        return null;
     }
 
     private void ScrollToEnd()

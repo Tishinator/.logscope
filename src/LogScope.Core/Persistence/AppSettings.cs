@@ -1,13 +1,14 @@
 namespace LogScope.Core.Persistence;
 
-/// <summary>A saved filter preset (UR-08).</summary>
+/// <summary>A saved filter preset (UR-08). ProfileScope=null means global; a name means profile-scoped.</summary>
 public sealed record FilterPreset(
     string Name,
     string FilterText,
     bool IsRegex,
     bool OnlyFlagged,
     string? FilterTimeFrom = null,
-    string? FilterTimeTo = null);
+    string? FilterTimeTo = null,
+    string? ProfileScope = null);
 
 /// <summary>Per-column display state, keyed by column name (SR-10).</summary>
 public sealed class ColumnState

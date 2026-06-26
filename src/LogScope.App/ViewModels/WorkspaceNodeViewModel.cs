@@ -28,8 +28,26 @@ public sealed class WorkspaceNodeViewModel : INotifyPropertyChanged
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
-    /// <summary>Hover details (UR-02): size and modified date kept out of the always-on tree.</summary>
-    public string? Tooltip { get; }
+    /// <summary>Hover details (UR-02): path, size, modified date — enriched with profile/streaming when a tab is open.</summary>
+    private string? _tooltip;
+    public string? Tooltip
+    {
+        get => _tooltip;
+        set { if (_tooltip != value) { _tooltip = value; OnPropertyChanged(); } }
+    }
+
+    private string? _baseTooltip;
+
+    public void UpdateTabInfo(string? profileName, bool streaming)
+    {
+        if (_baseTooltip == null) return;
+        var extra = new System.Text.StringBuilder(_baseTooltip);
+        if (!string.IsNullOrEmpty(profileName))
+            extra.Append($"\nProfile: {profileName}");
+        if (streaming)
+            extra.Append("\nStreaming: active");
+        Tooltip = extra.ToString();
+    }
 
     private WorkspaceNodeViewModel(string name, string? filePath, bool expanded)
     {
@@ -42,12 +60,13 @@ public sealed class WorkspaceNodeViewModel : INotifyPropertyChanged
             try
             {
                 var info = new FileInfo(filePath);
-                Tooltip = $"{filePath}\nSize: {FormatSize(info.Length)}\nModified: {info.LastWriteTime:yyyy-MM-dd HH:mm:ss}";
+                _baseTooltip = $"{filePath}\nSize: {FormatSize(info.Length)}\nModified: {info.LastWriteTime:yyyy-MM-dd HH:mm:ss}";
             }
             catch
             {
-                Tooltip = filePath;
+                _baseTooltip = filePath;
             }
+            _tooltip = _baseTooltip;
         }
     }
 

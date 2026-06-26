@@ -9,7 +9,7 @@
     </Window.Resources>
     <DockPanel Margin="14">
         <TextBlock DockPanel.Dock="Top" Foreground="#AAA" TextWrapping="Wrap" Margin="0,0,0,8"
-                   Text="Rules apply top-to-bottom by priority (higher wins for the row colour). Match types: Field value (exact match on a field), Message contains (substring of Message), or Regex (matched against any field)."/>
+                   Text="Rules apply top-to-bottom by priority (higher wins for the row colour). Match types: Field value (exact match on a field), Message contains (substring of Message), Regex (matched against any field), or Timestamp range (Field=timestamp field, Value=from|to as ISO-8601, either side blank = open-ended)."/>
 
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="OK" IsDefault="True" Click="OnOk" Width="90" Margin="0,0,8,0"/>

@@ -22,12 +22,22 @@ public sealed class ColorRuleDto
         Priority = rule.Priority,
     };
 
-    public ColorRule ToRule() => Kind switch
+    public ColorRule ToRule()
     {
-        ColorRule.MatchKind.FieldValue => ColorRule.ForFieldValue(FieldName ?? "Level", MatchValue, Background, Priority),
-        ColorRule.MatchKind.MessageContaining => ColorRule.ForMessageContaining(MatchValue, FieldHighlight, Priority),
-        _ => ColorRule.ForRegex(MatchValue, Background, Priority),
-    };
+        if (Kind == ColorRule.MatchKind.TimestampRange)
+        {
+            var parts = MatchValue.Split('|');
+            var from = parts.Length > 0 && !string.IsNullOrEmpty(parts[0]) ? parts[0] : null;
+            var to = parts.Length > 1 && !string.IsNullOrEmpty(parts[1]) ? parts[1] : null;
+            return ColorRule.ForTimestampRange(FieldName ?? "Timestamp", from, to, Background, Priority);
+        }
+        return Kind switch
+        {
+            ColorRule.MatchKind.FieldValue => ColorRule.ForFieldValue(FieldName ?? "Level", MatchValue, Background, Priority),
+            ColorRule.MatchKind.MessageContaining => ColorRule.ForMessageContaining(MatchValue, FieldHighlight, Priority),
+            _ => ColorRule.ForRegex(MatchValue, Background, Priority),
+        };
+    }
 }
 
 /// <summary>JSON-serializable representation of a <see cref="FlagRule"/> (UR-11 / SR-10).</summary>

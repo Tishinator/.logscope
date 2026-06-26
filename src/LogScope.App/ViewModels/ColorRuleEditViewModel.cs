@@ -8,7 +8,7 @@ namespace LogScope.App.ViewModels;
 public sealed class ColorRuleEditViewModel : ViewModelBase
 {
     public static IReadOnlyList<ColorRule.MatchKind> Kinds { get; } =
-        [ColorRule.MatchKind.FieldValue, ColorRule.MatchKind.MessageContaining, ColorRule.MatchKind.Regex];
+        [ColorRule.MatchKind.FieldValue, ColorRule.MatchKind.MessageContaining, ColorRule.MatchKind.Regex, ColorRule.MatchKind.TimestampRange];
 
     private ColorRule.MatchKind _kind;
     public ColorRule.MatchKind Kind { get => _kind; set => SetField(ref _kind, value); }

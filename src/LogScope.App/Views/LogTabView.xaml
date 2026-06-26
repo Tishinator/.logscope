@@ -78,6 +78,9 @@
                           IsChecked="{Binding SearchIsRegex}" Margin="0,0,4,0"/>
                 <CheckBox Content="W" Foreground="#CCC" VerticalAlignment="Center" ToolTip="Whole word"
                           IsChecked="{Binding SearchWholeWord}" Margin="0,0,4,0"/>
+                <CheckBox Content="all rows" Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,4,0"
+                          IsChecked="{Binding SearchAllRows}"
+                          ToolTip="Search all rows including those hidden by the current filter"/>
                 <Button Content="◀" Command="{Binding FindPrevCommand}" Margin="0,0,2,0" Padding="6,2" ToolTip="Previous match"/>
                 <Button Content="▶" Command="{Binding FindNextCommand}" Margin="0,0,4,0" Padding="6,2" ToolTip="Next match"/>
                 <TextBlock Text="{Binding SearchRegexError}" Foreground="#FF6666" FontSize="10"

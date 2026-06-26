@@ -168,6 +168,46 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private bool _syncing;
     private bool _timestampWarningShown;
 
+    private void OnTabScrolled(LogTabViewModel source, LogRowViewModel anchor)
+    {
+        if (_syncing || !CompareMode || SyncMode == SyncMode.Off) return;
+        if (!source.IsSyncEnabled) return;
+
+        _syncing = true;
+        try
+        {
+            if (SyncMode == SyncMode.Timestamp)
+            {
+                var field = source.CurrentProfile.TimestampField;
+                var refValue = field != null ? anchor.GetField(field) : null;
+                var refTs = TimestampParser.TryParse(refValue);
+
+                if (refTs != null)
+                {
+                    foreach (var tab in SplitGroup)
+                    {
+                        if (tab == source || !tab.IsSyncEnabled) continue;
+                        var rows = tab.TimestampedRows();
+                        if (rows.Count > 0)
+                        {
+                            var line = SyncAligner.NearestByTimestamp(rows, refTs.Value);
+                            if (line.HasValue) tab.SelectLine(line.Value);
+                        }
+                    }
+                    return;
+                }
+                // Fall through to line sync.
+            }
+
+            foreach (var tab in SplitGroup)
+            {
+                if (tab == source || !tab.IsSyncEnabled) continue;
+                tab.SelectLine(SyncAligner.AlignByLine(anchor.LineNumber, tab.LastLineNumber));
+            }
+        }
+        finally { _syncing = false; }
+    }
+
     private void OnTabSelectionChanged(LogTabViewModel source)
     {
         if (_syncing || !CompareMode || SyncMode == SyncMode.Off) return;
@@ -273,6 +313,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private void SaveFilterPreset()
     {
         if (SelectedTab == null) return;
+        var profileName = SelectedTab.ProfileName;
+        var scopeChoice = MessageBox.Show(
+            $"Scope this preset to profile '{profileName}' only?\n\n" +
+            "Yes = profile-scoped (only visible for this profile)\n" +
+            "No = global (visible for all profiles)",
+            "Preset scope", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        if (scopeChoice == MessageBoxResult.Cancel) return;
+        var scope = scopeChoice == MessageBoxResult.Yes ? profileName : null;
+
         var input = new InputDialog("Save filter preset", "Preset name:", "My filter")
         {
             Owner = Application.Current?.MainWindow
@@ -285,7 +334,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             SelectedTab.FilterIsRegex,
             SelectedTab.OnlyFlagged,
             string.IsNullOrEmpty(SelectedTab.FilterTimeFrom) ? null : SelectedTab.FilterTimeFrom,
-            string.IsNullOrEmpty(SelectedTab.FilterTimeTo) ? null : SelectedTab.FilterTimeTo);
+            string.IsNullOrEmpty(SelectedTab.FilterTimeTo) ? null : SelectedTab.FilterTimeTo,
+            scope);
         Settings.FilterPresets.RemoveAll(p => p.Name == preset.Name);
         Settings.FilterPresets.Add(preset);
         SaveSettings();
@@ -302,7 +352,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         SelectedTab.FilterTimeTo = preset.FilterTimeTo ?? string.Empty;
     }
 
-    public IEnumerable<FilterPreset> FilterPresets => Settings.FilterPresets;
+    /// <summary>Returns global presets plus those scoped to the active tab's profile (UR-08 / issue #9).</summary>
+    public IEnumerable<FilterPreset> FilterPresets
+    {
+        get
+        {
+            var activeProfile = SelectedTab?.ProfileName;
+            return Settings.FilterPresets.Where(p =>
+                p.ProfileScope == null ||
+                string.Equals(p.ProfileScope, activeProfile, StringComparison.OrdinalIgnoreCase));
+        }
+    }
 
     // ----- Manual encoding override (SR-04) -----
 
@@ -343,6 +403,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             SetField(ref _selectedTab, value);
             OnPropertyChanged(nameof(ShowSingleView));
             OnPropertyChanged(nameof(ShowNoTabHint));
+            OnPropertyChanged(nameof(FilterPresets));
         }
     }
 
@@ -477,6 +538,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             tab.PropertyChanged += OnTabPropertyChanged;
             tab.ColumnVisibilityChanged += (name, visible) => PersistColumnVisibility(tab, name, visible);
             tab.ColumnStateChanged += (name, width, displayIndex) => PersistColumnWidthOrder(tab, name, width, displayIndex);
+            tab.ScrollAnchorChanged += row => OnTabScrolled(tab, row);
             OpenTabs.Add(tab);
             SelectedTab = tab;
         }
@@ -486,7 +548,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    /// <summary>Per-file override > directory assignment > auto-detection (UR-05/UR-06).</summary>
+    /// <summary>Per-file override > directory assignment > auto-detection with accept/revise/reject prompt (UR-05/UR-06).</summary>
     private LogProfile ResolveProfile(string filePath)
     {
         var name = _resolver.Resolve(filePath, Settings.DirectoryProfileAssignments, Settings.FileProfileOverrides);
@@ -495,23 +557,59 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             var saved = SavedProfiles.FirstOrDefault(p => p.Name == name);
             if (saved != null) return saved;
         }
-        return DetectProfile(filePath);
+        return DetectProfileWithPrompt(filePath);
     }
 
-    private static LogProfile DetectProfile(string filePath)
+    private LogProfile DetectProfileWithPrompt(string filePath)
     {
         var sample = File.ReadLines(filePath).Take(50).ToList();
         var suggestion = new FormatDetector().Detect(sample);
-        if (suggestion.Kind == DetectedFormatKind.Delimited && suggestion.Delimiter != null)
+
+        if (suggestion.Kind != DetectedFormatKind.Delimited || suggestion.Delimiter == null)
         {
-            var p = LogProfile.Delimited(suggestion.Delimiter, suggestion.SuggestedFieldNames.ToList());
-            p.Name = "Auto-detected";
-            FieldSemanticGuesser.ApplyGuessedTypes(p); // type Timestamp/Level/etc. so sync + severity sort work
-            return p;
+            // Nothing detected — open raw silently.
+            var raw = LogProfile.Raw(); raw.Name = "Raw"; return raw;
         }
-        var raw = LogProfile.Raw();
-        raw.Name = "Raw";
-        return raw;
+
+        var auto = LogProfile.Delimited(suggestion.Delimiter, suggestion.SuggestedFieldNames.ToList());
+        auto.Name = "Auto-detected";
+        FieldSemanticGuesser.ApplyGuessedTypes(auto);
+
+        var fields = string.Join(", ", suggestion.SuggestedFieldNames);
+        var msg = $"Auto-detected format for {Path.GetFileName(filePath)}:\n" +
+                  $"Delimiter: '{suggestion.Delimiter}'  Fields: {fields}\n\n" +
+                  "Accept this format, Revise it in the wizard, or open as Raw text?";
+
+        var choice = MessageBox.Show(msg, "Format detected",
+            MessageBoxButton.YesNoCancel, MessageBoxImage.Question,
+            MessageBoxResult.Yes,
+            MessageBoxOptions.None);
+        // Yes = Accept, No = Revise, Cancel = Raw
+
+        if (choice == MessageBoxResult.Yes) return auto;
+
+        if (choice == MessageBoxResult.No)
+        {
+            var wizard = new Views.ParserWizardWindow(sample) { Owner = Application.Current?.MainWindow };
+            wizard.Title = $"Revise format — {Path.GetFileName(filePath)}";
+            if (wizard.ShowDialog() == true && wizard.ResultProfile != null)
+            {
+                var result = wizard.ResultProfile;
+                if (wizard.SaveToLibrary)
+                    SaveNewProfile(result);
+                return result;
+            }
+            // Wizard cancelled — fall through to raw.
+        }
+
+        var fallback = LogProfile.Raw(); fallback.Name = "Raw"; return fallback;
+    }
+
+    private void SaveNewProfile(LogProfile profile)
+    {
+        _profileRepo.Save(profile);
+        if (!SavedProfiles.Contains(profile))
+            SavedProfiles.Add(profile);
     }
 
     public void CloseTab(LogTabViewModel tab)
@@ -530,23 +628,31 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             OnTabSelectionChanged(tab);
         if (e.PropertyName == nameof(LogTabViewModel.FlaggedCount) && Settings.ShowIndicatorsInTree)
             PushFlaggedCountToTree(tab.FilePath, tab.FlaggedCount);
+        if (e.PropertyName is nameof(LogTabViewModel.StreamingEnabled) or nameof(LogTabViewModel.ProfileName))
+            PushTabInfoToTree(tab.FilePath, tab.ProfileName, tab.StreamingEnabled);
+    }
+
+    private void PushTabInfoToTree(string filePath, string? profileName, bool streaming)
+    {
+        var node = FindTreeNode(WorkspaceRoots, filePath);
+        node?.UpdateTabInfo(profileName, streaming);
+    }
+
+    private static WorkspaceNodeViewModel? FindTreeNode(IEnumerable<WorkspaceNodeViewModel> nodes, string path)
+    {
+        foreach (var n in nodes)
+        {
+            if (n.IsFile && string.Equals(n.FilePath, path, StringComparison.OrdinalIgnoreCase))
+                return n;
+            var found = FindTreeNode(n.Children, path);
+            if (found != null) return found;
+        }
+        return null;
     }
 
     private void PushFlaggedCountToTree(string filePath, int count)
     {
-        static WorkspaceNodeViewModel? Find(IEnumerable<WorkspaceNodeViewModel> nodes, string path)
-        {
-            foreach (var n in nodes)
-            {
-                if (n.IsFile && string.Equals(n.FilePath, path, StringComparison.OrdinalIgnoreCase))
-                    return n;
-                var found = Find(n.Children, path);
-                if (found != null) return found;
-            }
-            return null;
-        }
-
-        var node = Find(WorkspaceRoots, filePath);
+        var node = FindTreeNode(WorkspaceRoots, filePath);
         if (node != null) node.FlaggedCount = count;
     }
 
