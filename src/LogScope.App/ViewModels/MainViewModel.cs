@@ -343,7 +343,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             SelectedTab.OnlyFlagged,
             string.IsNullOrEmpty(SelectedTab.FilterTimeFrom) ? null : SelectedTab.FilterTimeFrom,
             string.IsNullOrEmpty(SelectedTab.FilterTimeTo) ? null : SelectedTab.FilterTimeTo,
-            scope);
+            scope,
+            string.IsNullOrEmpty(SelectedTab.ExcludeText) ? null : SelectedTab.ExcludeText,
+            SelectedTab.ExcludeIsRegex);
         Settings.FilterPresets.RemoveAll(p => p.Name == preset.Name);
         Settings.FilterPresets.Add(preset);
         SaveSettings();
@@ -358,6 +360,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         SelectedTab.FilterText = preset.FilterText;
         SelectedTab.FilterTimeFrom = preset.FilterTimeFrom ?? string.Empty;
         SelectedTab.FilterTimeTo = preset.FilterTimeTo ?? string.Empty;
+        SelectedTab.ExcludeText = preset.ExcludeText ?? string.Empty;
+        SelectedTab.ExcludeIsRegex = preset.ExcludeIsRegex;
     }
 
     /// <summary>Returns global presets plus those scoped to the active tab's profile (UR-08 / issue #9).</summary>
@@ -434,6 +438,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         get => Settings.ShowIndicatorsInTree;
         set { Settings.ShowIndicatorsInTree = value; OnPropertyChanged(); SaveSettings(); }
+    }
+
+    public bool ShowIndicatorsInTabs
+    {
+        get => Settings.ShowIndicatorsInTabs;
+        set { Settings.ShowIndicatorsInTabs = value; OnPropertyChanged(); SaveSettings(); }
     }
 
     public bool ShowIndicatorsInSummary
@@ -529,12 +539,21 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         var existing = OpenTabs.FirstOrDefault(t => string.Equals(t.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
         if (existing != null && !forceNewTab)
         {
-            // UR-03: offer to focus the open tab or open another copy.
-            var choice = MessageBox.Show(
-                $"{Path.GetFileName(filePath)} is already open.\n\nYes = focus the open tab, No = open in a new tab.",
-                "Already open", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-            if (choice == MessageBoxResult.Cancel) return;
+            // UR-03: offer three choices — focus existing, open in current tab (replace), or open new tab.
+            var activeTab = SelectedTab;
+            var msg = $"{Path.GetFileName(filePath)} is already open.\n\n" +
+                      "Yes = focus the open tab\n" +
+                      "No = open in current tab (replaces its content)\n" +
+                      "Cancel = open in a new tab";
+            var choice = MessageBox.Show(msg, "Already open", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
             if (choice == MessageBoxResult.Yes) { SelectedTab = existing; return; }
+            if (choice == MessageBoxResult.No && activeTab != null)
+            {
+                // Replace the current tab's content with this file.
+                await ReplaceTabContentAsync(activeTab, filePath);
+                return;
+            }
+            // Cancel = open in a new tab (fall through).
         }
 
         // Cancel any in-progress load.
@@ -561,6 +580,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             tab.PropertyChanged += OnTabPropertyChanged;
             tab.ColumnVisibilityChanged += (name, visible) => PersistColumnVisibility(tab, name, visible);
             tab.ColumnStateChanged += (name, width, displayIndex) => PersistColumnWidthOrder(tab, name, width, displayIndex);
+            tab.SortStateChanged += (column, descending) => PersistSortState(tab, column, descending);
             tab.ScrollAnchorChanged += row => OnTabScrolled(tab, row);
             OpenTabs.Add(tab);
             SelectedTab = tab;
@@ -573,6 +593,37 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             // User cancelled — nothing to report.
         }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not open log:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            if (!cts.IsCancellationRequested || _loadCts == cts)
+                IsLoading = false;
+        }
+    }
+
+    /// <summary>UR-03: load a new file into an existing tab, replacing its content.</summary>
+    private async Task ReplaceTabContentAsync(LogTabViewModel tab, string filePath)
+    {
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        var cts = _loadCts;
+        var progress = new Progress<double>(v => LoadingProgress = v);
+        IsLoading = true;
+        LoadingProgress = 0;
+        try
+        {
+            var (profile, needsDetection) = ResolveProfile(filePath);
+            var doc = await LogDocument.LoadAsync(filePath, profile,
+                encoding: null, LogDocument.DefaultMaxLines, progress, cts.Token);
+            if (cts.IsCancellationRequested) return;
+            tab.ApplyDocument(doc);
+            ApplyColumnLayout(tab);
+            if (needsDetection) OfferDetectedProfile(tab, filePath);
+        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             MessageBox.Show($"Could not open log:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -865,14 +916,26 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private void ApplyColumnLayout(LogTabViewModel tab)
     {
-        if (!Settings.ColumnLayouts.TryGetValue(ColumnLayoutKey(tab), out var layout)) return;
-        foreach (var toggle in tab.ColumnToggles)
+        var key = ColumnLayoutKey(tab);
+        if (Settings.ColumnLayouts.TryGetValue(key, out var layout))
         {
-            if (!layout.TryGetValue(toggle.Name, out var state)) continue;
-            toggle.IsVisible = state.Visible;
-            if (state.Width > 0 || state.DisplayIndex > 0)
-                tab.SavedColumnGeometry[toggle.Name] = (state.Width, state.DisplayIndex);
+            foreach (var toggle in tab.ColumnToggles)
+            {
+                if (!layout.TryGetValue(toggle.Name, out var state)) continue;
+                toggle.IsVisible = state.Visible;
+                if (state.Width > 0 || state.DisplayIndex > 0)
+                    tab.SavedColumnGeometry[toggle.Name] = (state.Width, state.DisplayIndex);
+            }
         }
+        if (Settings.SortStates.TryGetValue(key, out var sort))
+            tab.PendingSort = (sort.Column, sort.Descending);
+    }
+
+    private void PersistSortState(LogTabViewModel tab, string? column, bool descending)
+    {
+        var key = ColumnLayoutKey(tab);
+        Settings.SortStates[key] = new SortState { Column = column, Descending = descending };
+        SaveSettings();
     }
 
     private void PersistColumnVisibility(LogTabViewModel tab, string column, bool visible)
@@ -940,8 +1003,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         Settings.ColorRules = fresh.ColorRules;
         Settings.FlagRules = fresh.FlagRules;
         Settings.ColumnLayouts.Clear();
+        Settings.SortStates.Clear();
         Settings.StreamFollowByDefault = fresh.StreamFollowByDefault;
         Settings.ShowIndicatorsInTree = fresh.ShowIndicatorsInTree;
+        Settings.ShowIndicatorsInTabs = fresh.ShowIndicatorsInTabs;
         Settings.ShowIndicatorsInSummary = fresh.ShowIndicatorsInSummary;
 
         OnPropertyChanged(nameof(ExtensionsDisplay));

@@ -45,6 +45,16 @@ public sealed class LogTabViewModel : ViewModelBase, IDisposable
     public void ReportColumnState(string name, double width, int displayIndex) =>
         ColumnStateChanged?.Invoke(name, width, displayIndex);
 
+    /// <summary>Raised by the view when the user changes sort (column name, descending).</summary>
+    public event Action<string?, bool>? SortStateChanged;
+
+    /// <summary>Called from the view when sort column/direction changes.</summary>
+    public void ReportSortState(string? column, bool descending) =>
+        SortStateChanged?.Invoke(column, descending);
+
+    /// <summary>Sort to restore when this tab's columns are regenerated (null = unsorted).</summary>
+    public (string? Column, bool Descending) PendingSort { get; set; }
+
     /// <summary>Column names hidden when this tab was created (from persisted layout).</summary>
     public ISet<string> InitiallyHidden { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

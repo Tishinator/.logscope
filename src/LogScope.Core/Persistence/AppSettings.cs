@@ -8,7 +8,9 @@ public sealed record FilterPreset(
     bool OnlyFlagged,
     string? FilterTimeFrom = null,
     string? FilterTimeTo = null,
-    string? ProfileScope = null);
+    string? ProfileScope = null,
+    string? ExcludeText = null,
+    bool ExcludeIsRegex = false);
 
 /// <summary>Per-column display state, keyed by column name (SR-10).</summary>
 public sealed class ColumnState
@@ -16,6 +18,13 @@ public sealed class ColumnState
     public double Width { get; set; }
     public int DisplayIndex { get; set; }
     public bool Visible { get; set; } = true;
+}
+
+/// <summary>Persisted sort state for a tab layout (SR-05/SR-10).</summary>
+public sealed class SortState
+{
+    public string? Column { get; set; }
+    public bool Descending { get; set; }
 }
 
 /// <summary>
@@ -34,8 +43,9 @@ public sealed class AppSettings
 
     public bool StreamFollowByDefault { get; set; }
 
-    // Indicator visibility preferences (UR-11)
+    // Indicator visibility preferences (UR-11) — three independently configurable locations
     public bool ShowIndicatorsInTree { get; set; } = true;
+    public bool ShowIndicatorsInTabs { get; set; } = true;
     public bool ShowIndicatorsInSummary { get; set; } = true;
 
     public List<FilterPreset> FilterPresets { get; set; } = [];
@@ -50,4 +60,7 @@ public sealed class AppSettings
 
     // Column layout per profile name (SR-10): profile name -> (column name -> state)
     public Dictionary<string, Dictionary<string, ColumnState>> ColumnLayouts { get; set; } = new();
+
+    // Sort state per profile/layout key (SR-05/SR-10)
+    public Dictionary<string, SortState> SortStates { get; set; } = new();
 }

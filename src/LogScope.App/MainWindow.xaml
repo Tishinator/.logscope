@@ -154,7 +154,10 @@
                         <MenuItem Header="Show flagged-row badges in workspace tree" IsCheckable="True"
                                   IsChecked="{Binding ShowIndicatorsInTree}"
                                   Foreground="#1B2B3F"/>
-                        <MenuItem Header="Show flagged-row count in tab header" IsCheckable="True"
+                        <MenuItem Header="Show flagged-row count in tab headers" IsCheckable="True"
+                                  IsChecked="{Binding ShowIndicatorsInTabs}"
+                                  Foreground="#1B2B3F"/>
+                        <MenuItem Header="Show flagged-row count in status bar" IsCheckable="True"
                                   IsChecked="{Binding ShowIndicatorsInSummary}"
                                   Foreground="#1B2B3F"/>
                         <Separator/>
@@ -284,7 +287,7 @@
                                                 <DataTrigger Binding="{Binding FlaggedCount}" Value="0">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding DataContext.ShowIndicatorsInSummary, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                <DataTrigger Binding="{Binding DataContext.ShowIndicatorsInTabs, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                 </DataTrigger>
                                             </Style.Triggers>

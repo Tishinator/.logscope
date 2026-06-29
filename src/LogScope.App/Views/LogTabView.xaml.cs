@@ -187,6 +187,8 @@ public partial class LogTabView : UserControl
             if (saved >= 0 && saved < Grid.Columns.Count)
                 col.DisplayIndex = saved;
         }
+
+        ApplyPendingSort(vm);
     }
 
     private static readonly FieldForegroundConverter _fieldFgConverter = new();
@@ -250,6 +252,7 @@ public partial class LogTabView : UserControl
         foreach (var col in Grid.Columns)
             col.SortDirection = null;
         Grid.Items.Refresh();
+        _vm?.ReportSortState(null, false);
     }
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -261,19 +264,51 @@ public partial class LogTabView : UserControl
     /// <summary>Use severity order for the Level field; let the grid sort everything else normally.</summary>
     private void OnSorting(object sender, DataGridSortingEventArgs e)
     {
+        var colName = e.Column.Header?.ToString();
         var levelField = _vm?.CurrentProfile.LevelField;
-        if (levelField == null || !string.Equals(e.Column.Header?.ToString(), levelField, StringComparison.OrdinalIgnoreCase))
-            return;
+        bool isLevel = levelField != null && string.Equals(colName, levelField, StringComparison.OrdinalIgnoreCase);
 
-        e.Handled = true;
         var direction = e.Column.SortDirection != ListSortDirection.Ascending
             ? ListSortDirection.Ascending : ListSortDirection.Descending;
-        e.Column.SortDirection = direction;
 
-        if (CollectionViewSource.GetDefaultView(Grid.ItemsSource) is ListCollectionView view)
+        if (isLevel)
         {
-            view.CustomSort = new LevelSeverityComparer(_vm!.CurrentProfile, levelField, direction);
-            view.Refresh();
+            e.Handled = true;
+            e.Column.SortDirection = direction;
+            if (CollectionViewSource.GetDefaultView(Grid.ItemsSource) is ListCollectionView view)
+            {
+                view.CustomSort = new LevelSeverityComparer(_vm!.CurrentProfile, levelField!, direction);
+                view.Refresh();
+            }
+        }
+        // For non-Level columns WPF handles sorting normally; report the new state after the sort is applied.
+        _vm?.ReportSortState(colName, direction == ListSortDirection.Descending);
+    }
+
+    /// <summary>Apply a persisted sort to the grid after columns are generated.</summary>
+    private void ApplyPendingSort(LogTabViewModel vm)
+    {
+        var (column, descending) = vm.PendingSort;
+        if (column == null) return;
+
+        var col = Grid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), column, StringComparison.OrdinalIgnoreCase));
+        if (col == null) return;
+
+        var direction = descending ? ListSortDirection.Descending : ListSortDirection.Ascending;
+        var levelField = vm.CurrentProfile.LevelField;
+
+        if (string.Equals(column, levelField, StringComparison.OrdinalIgnoreCase) &&
+            CollectionViewSource.GetDefaultView(Grid.ItemsSource) is ListCollectionView listView)
+        {
+            col.SortDirection = direction;
+            listView.CustomSort = new LevelSeverityComparer(vm.CurrentProfile, levelField!, direction);
+            listView.Refresh();
+        }
+        else if (CollectionViewSource.GetDefaultView(Grid.ItemsSource) is ICollectionView view)
+        {
+            col.SortDirection = direction;
+            view.SortDescriptions.Clear();
+            view.SortDescriptions.Add(new SortDescription(col.SortMemberPath ?? $"Fields[{column}]", direction));
         }
     }
 

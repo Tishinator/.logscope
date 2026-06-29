@@ -248,6 +248,13 @@ public partial class ParserWizardWindow : Window
                 return "Regex pattern must contain at least one named capture group, e.g. (?<Level>\\w+).";
         }
 
+        if (!string.IsNullOrEmpty(profile.MultilineNewEventPattern))
+        {
+            try { _ = new System.Text.RegularExpressions.Regex(profile.MultilineNewEventPattern); }
+            catch (System.Text.RegularExpressions.RegexParseException ex)
+                { return $"Multiline new-event pattern is invalid: {ex.Message}"; }
+        }
+
         return null;
     }
 }
