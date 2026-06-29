@@ -548,7 +548,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         try
         {
-            var profile = ResolveProfile(filePath);
+            var (profile, needsDetection) = ResolveProfile(filePath);
             var doc = await LogDocument.LoadAsync(filePath, profile,
                 encoding: null, LogDocument.DefaultMaxLines, progress, cts.Token);
 
@@ -564,6 +564,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             tab.ScrollAnchorChanged += row => OnTabScrolled(tab, row);
             OpenTabs.Add(tab);
             SelectedTab = tab;
+
+            // UR-05: file is now visible in raw form — offer format detection after content is shown.
+            if (needsDetection)
+                OfferDetectedProfile(tab, filePath);
         }
         catch (OperationCanceledException)
         {
@@ -580,28 +584,35 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    /// <summary>Per-file override > directory assignment > auto-detection with accept/revise/reject prompt (UR-05/UR-06).</summary>
-    private LogProfile ResolveProfile(string filePath)
+    /// <summary>
+    /// Per-file override > directory assignment > Raw (with deferred detection flag).
+    /// Returns (profile, needsDetection=true) when no saved profile exists so the caller
+    /// can show the raw file first and then offer format detection (UR-05).
+    /// </summary>
+    private (LogProfile Profile, bool NeedsDetection) ResolveProfile(string filePath)
     {
         var name = _resolver.Resolve(filePath, Settings.DirectoryProfileAssignments, Settings.FileProfileOverrides);
         if (name != null)
         {
             var saved = SavedProfiles.FirstOrDefault(p => p.Name == name);
-            if (saved != null) return saved;
+            if (saved != null) return (saved, false);
         }
-        return DetectProfileWithPrompt(filePath);
+        var raw = LogProfile.Raw(); raw.Name = "Raw";
+        return (raw, true);
     }
 
-    private LogProfile DetectProfileWithPrompt(string filePath)
+    /// <summary>
+    /// UR-05: called after the tab is visible with raw content.  Runs format detection and,
+    /// if a format is found, prompts the user to Accept / Revise / Keep Raw.
+    /// On Accept/Revise the tab is re-parsed with the chosen profile.
+    /// </summary>
+    private void OfferDetectedProfile(LogTabViewModel tab, string filePath)
     {
-        var sample = File.ReadLines(filePath).Take(50).ToList();
+        var sample = SafeSample(filePath);
         var suggestion = new FormatDetector().Detect(sample);
 
         if (suggestion.Kind != DetectedFormatKind.Delimited || suggestion.Delimiter == null)
-        {
-            // Nothing detected — open raw silently.
-            var raw = LogProfile.Raw(); raw.Name = "Raw"; return raw;
-        }
+            return; // Nothing detected — raw is the right choice, stay silent.
 
         var auto = LogProfile.Delimited(suggestion.Delimiter, suggestion.SuggestedFieldNames.ToList());
         auto.Name = "Auto-detected";
@@ -610,31 +621,43 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         var fields = string.Join(", ", suggestion.SuggestedFieldNames);
         var msg = $"Auto-detected format for {Path.GetFileName(filePath)}:\n" +
                   $"Delimiter: '{suggestion.Delimiter}'  Fields: {fields}\n\n" +
-                  "Accept this format, Revise it in the wizard, or open as Raw text?";
+                  "Accept this format, Revise it in the wizard, or keep as Raw text?";
 
         var choice = MessageBox.Show(msg, "Format detected",
             MessageBoxButton.YesNoCancel, MessageBoxImage.Question,
             MessageBoxResult.Yes,
             MessageBoxOptions.None);
-        // Yes = Accept, No = Revise, Cancel = Raw
+        // Yes = Accept, No = Revise, Cancel/X = keep Raw
 
-        if (choice == MessageBoxResult.Yes) return auto;
-
-        if (choice == MessageBoxResult.No)
+        LogProfile? chosen = null;
+        if (choice == MessageBoxResult.Yes)
+        {
+            chosen = auto;
+        }
+        else if (choice == MessageBoxResult.No)
         {
             var wizard = new Views.ParserWizardWindow(sample) { Owner = Application.Current?.MainWindow };
             wizard.Title = $"Revise format — {Path.GetFileName(filePath)}";
             if (wizard.ShowDialog() == true && wizard.ResultProfile != null)
             {
-                var result = wizard.ResultProfile;
+                chosen = wizard.ResultProfile;
                 if (wizard.SaveToLibrary)
-                    SaveNewProfile(result);
-                return result;
+                    SaveNewProfile(chosen);
             }
-            // Wizard cancelled — fall through to raw.
         }
 
-        var fallback = LogProfile.Raw(); fallback.Name = "Raw"; return fallback;
+        if (chosen == null) return;
+
+        try
+        {
+            tab.ApplyDocument(LogDocument.Load(filePath, chosen, encoding: null, LogDocument.DefaultMaxLines));
+            ApplyColumnLayout(tab);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not apply detected format:\n{ex.Message}", "Error",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void SaveNewProfile(LogProfile profile)
@@ -719,6 +742,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             try
             {
                 tab.ApplyDocument(LogDocument.Load(filePath, profile, encoding: null, LogDocument.DefaultMaxLines));
+                ApplyColumnLayout(tab);
             }
             catch (Exception ex)
             {
@@ -776,7 +800,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
         SaveSettings();
 
-        try { SelectedTab.ApplyDocument(LogDocument.Load(SelectedTab.FilePath, profile, null, LogDocument.DefaultMaxLines)); }
+        try
+        {
+            SelectedTab.ApplyDocument(LogDocument.Load(SelectedTab.FilePath, profile, null, LogDocument.DefaultMaxLines));
+            ApplyColumnLayout(SelectedTab);
+        }
         catch { /* ignore */ }
     }
 
