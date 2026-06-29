@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 using LogScope.App.ViewModels;
@@ -22,7 +23,7 @@ public sealed class FieldForegroundConverter : IValueConverter
                 catch { /* fall through */ }
             }
         }
-        return null; // let the cell inherit default foreground
+        return DependencyProperty.UnsetValue; // let the cell inherit default foreground
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>

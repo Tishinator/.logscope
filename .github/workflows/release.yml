@@ -21,8 +21,11 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Test
+      - name: Test (Core)
         run: dotnet test tests/LogScope.Core.Tests --configuration Release
+
+      - name: Test (App — WPF startup smoke + converter)
+        run: dotnet test tests/LogScope.App.Tests --configuration Release
 
       - name: Publish self-contained single-file exe
         run: >
