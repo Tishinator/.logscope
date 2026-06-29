@@ -23,6 +23,7 @@ public partial class MainWindow : Window
         var s = _vm.Settings;
         if (s.WindowWidth > 200) Width = s.WindowWidth;
         if (s.WindowHeight > 200) Height = s.WindowHeight;
+        if (s.WorkspacePanelWidth > 26) WorkspaceColumn.Width = new GridLength(s.WorkspacePanelWidth);
 
         if (s.WindowLeft.HasValue && s.WindowTop.HasValue)
         {
@@ -52,6 +53,8 @@ public partial class MainWindow : Window
             s.WindowLeft = Left;
             s.WindowTop = Top;
         }
+        if (WorkspaceColumn.Width.IsAbsolute && WorkspaceColumn.Width.Value > 26)
+            s.WorkspacePanelWidth = WorkspaceColumn.Width.Value;
         _vm.SaveSettings();
         _vm.Dispose();
     }

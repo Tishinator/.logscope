@@ -727,13 +727,19 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (CompareMode && SplitGroup.Count < 2) ExitSplit();
     }
 
+    public int TotalFlaggedCount => OpenTabs.Sum(t => t.FlaggedCount);
+
     private void OnTabPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (sender is not LogTabViewModel tab) return;
         if (e.PropertyName == nameof(LogTabViewModel.SelectedRow))
             OnTabSelectionChanged(tab);
-        if (e.PropertyName == nameof(LogTabViewModel.FlaggedCount) && Settings.ShowIndicatorsInTree)
-            PushFlaggedCountToTree(tab.FilePath, tab.FlaggedCount);
+        if (e.PropertyName == nameof(LogTabViewModel.FlaggedCount))
+        {
+            if (Settings.ShowIndicatorsInTree)
+                PushFlaggedCountToTree(tab.FilePath, tab.FlaggedCount);
+            OnPropertyChanged(nameof(TotalFlaggedCount));
+        }
         if (e.PropertyName is nameof(LogTabViewModel.StreamingEnabled) or nameof(LogTabViewModel.ProfileName))
             PushTabInfoToTree(tab.FilePath, tab.ProfileName, tab.StreamingEnabled);
     }

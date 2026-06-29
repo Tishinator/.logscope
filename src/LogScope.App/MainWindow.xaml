@@ -383,6 +383,15 @@
             </DockPanel>
         </Grid>
 
+        <!-- Summary bar — cross-tab flagged event count (UR-11) -->
+        <Border DockPanel.Dock="Bottom" Background="#1B2B3F" Padding="10,3"
+                Visibility="{Binding ShowIndicatorsInSummary, Converter={StaticResource BoolToVis}}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Flagged rows across all tabs: " Foreground="#7C99B8" FontSize="11" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding TotalFlaggedCount}" Foreground="#E5C07B" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
         <!-- Loading overlay: shown while a file is being parsed in background (issue #4) -->
         <Grid Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
               Background="#AA000000">

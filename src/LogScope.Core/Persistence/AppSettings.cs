@@ -38,6 +38,7 @@ public sealed class AppSettings
     public bool WindowMaximized { get; set; }
     public double? WindowLeft { get; set; }
     public double? WindowTop { get; set; }
+    public double WorkspacePanelWidth { get; set; } = 260;
 
     public List<string> IncludedExtensions { get; set; } = [".log"];
 
